@@ -1,0 +1,4 @@
+# Python requirements for MyAnonamouseRenewarr
+flask==3.0.3
+waitress==2.1.2
+requests

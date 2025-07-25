@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Basic Mode</h2>
+<div class="box">
+  <div class="button-row">
+    <button title="Run all fixes">Fix All</button>
+    <button title="Fix MyAnonamouse">Fix MyAnonamouse</button>
+    <button title="Fix Prowlarr">Fix Prowlarr</button>
+    <button title="Run on Timer">Run on Timer</button>
+  </div>
+  <div style="margin-bottom:1em;">
+    <label for="timer">Select Time (24h):</label>
+    <input type="time" id="timer" name="timer">
+  </div>
+  <div>
+    <label for="random-minutes">Random Minutes:</label>
+    <input type="number" id="random-minutes" name="random-minutes" min="0" max="60">
+  </div>
+</div>
+{% endblock %}

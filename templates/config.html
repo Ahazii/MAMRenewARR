@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="theme-toggle-bar">
+  <label for="theme-toggle">Light/Dark Mode:</label>
+  <button id="theme-toggle" title="Toggle light/dark mode">🌞/🌜</button>
+</div>
+<h2>Config Page</h2>
+<div class="box config-fields">
+  <h3>MyAnonamouseRenewarr</h3>
+  <label for="config-folder">Config Folder:</label>
+  <input type="text" id="config-folder" value="/mnt/user/appdata/MyAnonamouseRenewarr" title="Path to the docker's setting file">
+  <label for="loglevel">LogLevel:</label>
+  <select id="loglevel">
+    <option value="Info">Info</option>
+    <option value="Debug">Debug</option>
+  </select>
+  <label for="mam-url">Myanonamouse url:</label>
+  <input type="text" id="mam-url" value="https://www.myanonamouse.net/">
+  <label for="security-page">Security Page:</label>
+  <input type="text" id="security-page" value="https://www.myanonamouse.net/preferences/index.php?view=security">
+</div>
+<div class="box config-fields">
+  <h3>Unraid</h3>
+  <label for="unraid-ip">Unraid IP:</label>
+  <input type="text" id="unraid-ip" value="192.168.1.55">
+  <label for="unraid-username">Username:</label>
+  <input type="text" id="unraid-username" value="root">
+  <label for="unraid-password">Password:</label>
+  <div style="display:flex;align-items:center;gap:0.5em;">
+    <input type="password" id="unraid-password">
+    <button title="Show/Hide password">👁️</button>
+  </div>
+</div>
+<div class="box config-fields">
+  <h3>Prowlarr</h3>
+  <label for="prowlarr-url">Prowlarr url:</label>
+  <input type="text" id="prowlarr-url" value="192.168.1.55:9696">
+  <label for="prowlarr-username">Username:</label>
+  <input type="text" id="prowlarr-username">
+  <label for="prowlarr-password">Password:</label>
+  <div style="display:flex;align-items:center;gap:0.5em;">
+    <input type="password" id="prowlarr-password">
+    <button title="Show/Hide password">👁️</button>
+  </div>
+</div>
+<div class="box config-fields">
+  <h3>qBittorrentVPN</h3>
+  <label for="qbittorrentvpn-container">Container Name:</label>
+  <input type="text" id="qbittorrentvpn-container" value="binhex-qbittorrentvpn" title="Name of the qBittorrentVPN Docker container">
+  <label for="qbittorrentvpn-logpath">Log File Path:</label>
+  <input type="text" id="qbittorrentvpn-logpath" value="/config/QBittorrent/data/logs/qbittorrent.log" title="Path to the log file inside the container">
+</div>
+<div class="box button-row">
+  <button title="Save config changes">Save Config</button>
+  <button title="Revert config changes">Cancel</button>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Elements
+  const containerInput = document.getElementById('qbittorrentvpn-container');
+  const logpathInput = document.getElementById('qbittorrentvpn-logpath');
+  const saveBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Save Config');
+  const cancelBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Cancel');
+
+  // Load settings from backend
+  function loadSettings() {
+    fetch('/api/settings').then(r => r.json()).then(data => {
+      if (data.qbittorrentvpn_container) containerInput.value = data.qbittorrentvpn_container;
+      if (data.qbittorrentvpn_logpath) logpathInput.value = data.qbittorrentvpn_logpath;
+    });
+  }
+
+  // Save settings to backend
+  function saveSettings() {
+    const data = {
+      qbittorrentvpn_container: containerInput.value,
+      qbittorrentvpn_logpath: logpathInput.value
+    };
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).then(r => r.json()).then(() => {
+      alert('Config saved!');
+    });
+  }
+
+  // Revert changes
+  function revertSettings() {
+    loadSettings();
+  }
+
+  if (saveBtn) saveBtn.addEventListener('click', saveSettings);
+  if (cancelBtn) cancelBtn.addEventListener('click', revertSettings);
+  loadSettings();
+});
+</script>
+{% endblock %}

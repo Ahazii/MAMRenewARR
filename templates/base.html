@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyAnonamouseRenewarr</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; }
+        header, footer { background: #222; color: #fff; padding: 1em; text-align: center; }
+        nav { margin: 1em 0; }
+        .nav-link { color: #fff; text-decoration: none; margin: 0 1em; font-weight: bold; }
+        .nav-link:hover { text-decoration: underline; }
+        main { margin: 2em auto; max-width: 700px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 2em; border-radius: 8px; }
+        .version { font-size: 0.9em; color: #bbb; }
+        .box { background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; padding: 1em; margin-bottom: 1.5em; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .config-fields { display: flex; flex-direction: column; gap: 0.7em; max-width: 430px; margin: 0 auto; }
+        label { font-weight: 600; margin-bottom: 0.2em; color: #333; display: inline-block; min-width: 140px; }
+        input[type='text'], input[type='password'], input[type='number'], input[type='time'], select { padding: 0.4em 0.7em; border: 1px solid #bbb; border-radius: 4px; font-size: 1em; width: 260px; max-width: 100%; }
+        .button-row, .box button, button {
+  margin: 0.3em 0.7em 0.3em 0;
+  padding: 0.55em 1.2em;
+  border-radius: 5px;
+  border: 1.5px solid #bbb;
+  background: #f5f5f5 !important;
+  color: #222 !important;
+  font-weight: 600;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+  box-shadow: 0 2px 8px rgba(120,120,120,0.08);
+  letter-spacing: 0.01em;
+}
+.box button:hover, button:hover {
+  background: #e0e0e0 !important;
+  color: #111 !important;
+  border-color: #888;
+}
+body.dark-mode .button-row, body.dark-mode .box button, body.dark-mode button {
+  background: #23272b !important;
+  color: #ffd700 !important;
+  border: 1.5px solid #444;
+}
+body.dark-mode .box button:hover, body.dark-mode button:hover {
+  background: #35393e !important;
+  color: #fff !important;
+  border-color: #ffd700;
+}
+
+        /* Light/Dark Mode Styles */
+        body.light-mode { background: #f4f4f4; color: #222; }
+        body.dark-mode { background: #181c1f; color: #e2e2e2; }
+        body.light-mode main { background: #fff; }
+        body.dark-mode main { background: #23272b; }
+        body.light-mode .box { background: #f9f9f9; border-color: #ddd; }
+        body.dark-mode .box { background: #23272b; border-color: #333; }
+        body.light-mode header, body.light-mode footer { background: #222; color: #fff; }
+        body.dark-mode header, body.dark-mode footer { background: #111; color: #e2e2e2; }
+        body.light-mode .nav-link { color: #fff; }
+        body.dark-mode .nav-link { color: #ffd700; }
+        body.dark-mode label { color: #ffd700; }
+        body.light-mode label { color: #333; }
+        body.light-mode input, body.light-mode select { background: #fff; color: #222; border-color: #bbb; }
+        body.dark-mode input, body.dark-mode select { background: #23272b; color: #e2e2e2; border-color: #444; }
+
+
+        .button-row { display: flex; flex-wrap: wrap; gap: 0.6em; margin-bottom: 1em; }
+        .theme-toggle-bar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1em; }
+        .theme-toggle-bar label { margin: 0 0.5em 0 0; min-width: unset; font-weight: 500; color: #444; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>MyAnonamouseRenewarr <span class="version">v0.1</span></h1>
+        <div>by Ahazi</div>
+        <nav>
+            <a href="{{ url_for('basic') }}" class="nav-link">Basic</a> |
+            <a href="{{ url_for('advanced') }}" class="nav-link">Advanced</a> |
+            <a href="{{ url_for('config') }}" class="nav-link">Config</a>
+        </nav>
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <footer>
+        <span id="status">Status area: Ready</span>
+    </footer>
+</body>
+<script>
+// Light/Dark mode toggle
+const toggleBtn = document.getElementById('theme-toggle');
+function setTheme(mode) {
+  document.body.classList.remove('light-mode', 'dark-mode');
+  document.body.classList.add(mode+'-mode');
+  localStorage.setItem('theme', mode);
+  if (toggleBtn) toggleBtn.textContent = mode === 'dark' ? '🌜' : '🌞';
+}
+function toggleTheme() {
+  const current = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+  setTheme(current === 'dark' ? 'light' : 'dark');
+}
+window.addEventListener('DOMContentLoaded', () => {
+  let mode = localStorage.getItem('theme');
+  if (!mode) { mode = 'light'; }
+  setTheme(mode);
+  if (toggleBtn) toggleBtn.addEventListener('click', toggleTheme);
+});
+</script>
+</html>
