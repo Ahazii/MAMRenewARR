@@ -60,25 +60,33 @@ def api_get_ips():
     
     # 2. Get VPN IP - Multiple methods
     vpn_ip = "Not Found"
-    
+
     # Method 1: Try to read from mounted log file if available
-    logpath = settings.get('qbittorrentvpn_logpath', '/shared/qbittorrent/logs/qbittorrent.log')
+    # Expectation per deployment: From where settings.json is (/app/data), go up one dir to /app,
+    # then into /binhex-qbittorrentvpn/qBittorrent/data/logs/qbittorrent.log
+    # Therefore, mount the host path read-only as:
+    #   -v /mnt/user/appdata/binhex-qbittorrentvpn:/app/binhex-qbittorrentvpn:ro
+    # Default log path inside this container becomes:
+    logpath = settings.get('qbittorrentvpn_logpath', '/app/binhex-qbittorrentvpn/qBittorrent/data/logs/qbittorrent.log')
     if os.path.exists(logpath):
         try:
-            with open(logpath, 'r') as f:
+            with open(logpath, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
-                for line in reversed(lines[-100:]):  # Check last 100 lines
-                    m = re.search(r'Detected external IP\. IP: "([0-9\.]+)"', line)
-                    if m:
-                        vpn_ip = m.group(1)
-                        break
+
+            # Search from the end for the most recent "Detected external IP. IP:" line
+            # Match IPv4 with or without surrounding quotes
+            ipv4_regex = re.compile(r'Detected external IP\. IP:\s*"?([0-9]{1,3}(?:\.[0-9]{1,3}){3})"?')
+            for line in reversed(lines[-500:]):  # Check last 500 lines for robustness
+                m = ipv4_regex.search(line)
+                if m:
+                    vpn_ip = m.group(1)
+                    break
         except Exception as e:
             print(f"Error reading log file {logpath}: {e}")
-    
-    # Method 2: Try alternative VPN IP detection via API if available
+
+    # Method 2: Try alternative VPN IP detection via API if available (as a last resort)
     if vpn_ip == "Not Found":
         try:
-            # Try common VPN detection services
             vpn_response = requests.get('https://ipinfo.io/json', timeout=5)
             if vpn_response.status_code == 200:
                 data = vpn_response.json()
