@@ -5,9 +5,11 @@ import subprocess
 import re
 import requests
 
-SETTINGS_FILE = os.path.join(os.path.dirname(__file__), 'settings.json')
+SETTINGS_FILE = os.path.join('/app/data', 'settings.json')
 
 def load_settings():
+    # Ensure data directory exists
+    os.makedirs('/app/data', exist_ok=True)
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, 'r') as f:
             return json.load(f)
@@ -48,30 +50,43 @@ def api_save_settings():
 @app.route('/api/get_ips', methods=['GET'])
 def api_get_ips():
     settings = load_settings()
-    container = settings.get('qbittorrentvpn_container', 'binhex-qbittorrentvpn')
-    logpath = settings.get('qbittorrentvpn_logpath', '/config/QBittorrent/data/logs/qbittorrent.log')
+    
     # 1. Get external IP
     try:
-        ext_ip = requests.get('https://api.ipify.org').text.strip()
-    except Exception:
-        ext_ip = None
-    # 2. Get VPN IP from log file inside container
-    vpn_ip = None
-    try:
-        result = subprocess.run([
-            'docker', 'exec', container, 'cat', logpath
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
-        if result.returncode == 0:
-            lines = result.stdout.split('\n')
-            for line in reversed(lines):
-                m = re.search(r'Detected external IP\. IP: "([0-9\.]+)"', line)
-                if m:
-                    vpn_ip = m.group(1)
-                    break
-        else:
-            print(f"Error reading log: {result.stderr}")
+        ext_ip = requests.get('https://api.ipify.org', timeout=10).text.strip()
     except Exception as e:
-        print(f"Exception: {e}")
+        print(f"Error getting external IP: {e}")
+        ext_ip = "Error"
+    
+    # 2. Get VPN IP - Multiple methods
+    vpn_ip = "Not Found"
+    
+    # Method 1: Try to read from mounted log file if available
+    logpath = settings.get('qbittorrentvpn_logpath', '/shared/qbittorrent/logs/qbittorrent.log')
+    if os.path.exists(logpath):
+        try:
+            with open(logpath, 'r') as f:
+                lines = f.readlines()
+                for line in reversed(lines[-100:]):  # Check last 100 lines
+                    m = re.search(r'Detected external IP\. IP: "([0-9\.]+)"', line)
+                    if m:
+                        vpn_ip = m.group(1)
+                        break
+        except Exception as e:
+            print(f"Error reading log file {logpath}: {e}")
+    
+    # Method 2: Try alternative VPN IP detection via API if available
+    if vpn_ip == "Not Found":
+        try:
+            # Try common VPN detection services
+            vpn_response = requests.get('https://ipinfo.io/json', timeout=5)
+            if vpn_response.status_code == 200:
+                data = vpn_response.json()
+                if 'ip' in data:
+                    vpn_ip = data['ip']
+        except Exception as e:
+            print(f"Error getting VPN IP via API: {e}")
+    
     return jsonify({'external_ip': ext_ip, 'vpn_ip': vpn_ip})
 
 if __name__ == '__main__':
