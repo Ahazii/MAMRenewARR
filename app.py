@@ -195,16 +195,22 @@ def api_get_ips():
 def api_login_mam():
     """Login to MyAnonamouse using stored credentials"""
     settings = load_settings()
+    debug_info = []
     
     # Get credentials from settings
     mam_url = settings.get('mam_url', 'https://www.myanonamouse.net/')
     username = settings.get('mam_username', '')
     password = settings.get('mam_password', '')
     
+    debug_info.append(f"MAM URL: {mam_url}")
+    debug_info.append(f"Username provided: {'Yes' if username else 'No'}")
+    debug_info.append(f"Password provided: {'Yes' if password else 'No'}")
+    
     if not username or not password:
         return jsonify({
             'success': False, 
-            'message': 'MAM username or password not configured. Please check your settings.'
+            'message': 'MAM username or password not configured. Please check your settings.',
+            'debug_info': debug_info
         })
     
     try:
@@ -212,12 +218,17 @@ def api_login_mam():
         
         # First, get the login page to check if we need to login
         login_url = mam_url.rstrip('/') + '/login.php'
+        debug_info.append(f"Accessing login URL: {login_url}")
         response = session.get(login_url, timeout=10)
+        
+        debug_info.append(f"Login page status: {response.status_code}")
+        debug_info.append(f"Final URL after redirects: {response.url}")
         
         if response.status_code != 200:
             return jsonify({
                 'success': False,
-                'message': f'Failed to access MAM login page. Status: {response.status_code}'
+                'message': f'Failed to access MAM login page. Status: {response.status_code}',
+                'debug_info': debug_info
             })
         
         # Check if we're already logged in by looking for indicators
@@ -234,54 +245,120 @@ def api_login_mam():
         login_form = soup.find('form')
         
         if not login_form:
+            debug_info.append("No form found on page")
             return jsonify({
                 'success': False,
-                'message': 'Could not find login form on MAM page'
+                'message': 'Could not find login form on MAM page',
+                'debug_info': debug_info
             })
         
-        # Prepare login data
-        login_data = {
-            'username': username,
-            'password': password
-        }
+        debug_info.append(f"Form found with action: {login_form.get('action', 'No action')}")
+        
+        # Find all input fields to understand the form structure
+        all_inputs = login_form.find_all('input')
+        input_info = []
+        for inp in all_inputs:
+            input_info.append(f"{inp.get('name', 'unnamed')}({inp.get('type', 'text')})")
+        debug_info.append(f"Form inputs: {', '.join(input_info)}")
+        
+        # Prepare login data - try multiple common field names
+        login_data = {}
+        
+        # Find username field
+        username_field = None
+        for field_name in ['username', 'user', 'login', 'email']:
+            if login_form.find('input', {'name': field_name}):
+                username_field = field_name
+                break
+        
+        # Find password field  
+        password_field = None
+        for field_name in ['password', 'pass', 'pwd']:
+            if login_form.find('input', {'name': field_name}):
+                password_field = field_name
+                break
+                
+        if username_field and password_field:
+            login_data[username_field] = username
+            login_data[password_field] = password
+            debug_info.append(f"Using fields: {username_field}, {password_field}")
+        else:
+            debug_info.append("Could not identify username/password fields")
+            return jsonify({
+                'success': False,
+                'message': 'Could not identify login form fields',
+                'debug_info': debug_info
+            })
         
         # Add any hidden form fields
         for hidden_input in login_form.find_all('input', type='hidden'):
             if hidden_input.get('name') and hidden_input.get('value'):
                 login_data[hidden_input['name']] = hidden_input['value']
+                debug_info.append(f"Added hidden field: {hidden_input['name']}")
         
         # Submit login form
         form_action = login_form.get('action', '/takelogin.php')
         if not form_action.startswith('http'):
             form_action = mam_url.rstrip('/') + '/' + form_action.lstrip('/')
         
+        debug_info.append(f"Submitting to: {form_action}")
+        debug_info.append(f"Login data keys: {list(login_data.keys())}")
+        
         login_response = session.post(form_action, data=login_data, timeout=10, allow_redirects=True)
+        
+        debug_info.append(f"Login response status: {login_response.status_code}")
+        debug_info.append(f"Final redirect URL: {login_response.url}")
         
         if login_response.status_code != 200:
             return jsonify({
                 'success': False,
-                'message': f'Login request failed. Status: {login_response.status_code}'
+                'message': f'Login request failed. Status: {login_response.status_code}',
+                'debug_info': debug_info
             })
         
-        # Check if login was successful
-        # Look for indicators that we're logged in (no login form, user menu, etc.)
-        if 'login.php' in login_response.url or 'error' in login_response.text.lower():
+        # Check if login was successful - look for common failure indicators
+        response_text_lower = login_response.text.lower()
+        
+        # Common failure indicators
+        failure_indicators = [
+            'login.php' in login_response.url,
+            'invalid' in response_text_lower,
+            'incorrect' in response_text_lower,
+            'error' in response_text_lower and 'login' in response_text_lower,
+            'username' in response_text_lower and 'password' in response_text_lower
+        ]
+        
+        debug_info.append(f"Failure indicators: {sum(failure_indicators)} found")
+        
+        if any(failure_indicators):
+            # Look for specific error messages
+            error_msg = "Login failed. Please check your username and password."
+            if 'invalid' in response_text_lower:
+                error_msg += " (Invalid credentials)"
+            elif 'banned' in response_text_lower or 'disabled' in response_text_lower:
+                error_msg += " (Account may be banned/disabled)"
+            
             return jsonify({
                 'success': False,
-                'message': 'Login failed. Please check your username and password.'
+                'message': error_msg,
+                'debug_info': debug_info
             })
         
+        debug_info.append("Login appears successful")
         return jsonify({
             'success': True,
             'message': 'Successfully logged into MAM',
-            'redirect_url': login_response.url
+            'redirect_url': login_response.url,
+            'debug_info': debug_info
         })
         
     except Exception as e:
         print(f"MAM login error: {e}")
+        debug_info.append(f"Exception: {str(e)}")
         return jsonify({
             'success': False,
-            'message': f'Login error: {str(e)}'
+            'message': f'Login error: {str(e)}',
+            'debug_info': debug_info
         })
 
 if __name__ == '__main__':

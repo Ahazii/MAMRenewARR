@@ -21,6 +21,8 @@
     <button title="Logout of MAM">Logout MAM</button>
   </div>
   <div id="mam-result" style="margin-top:1em;font-weight:600;"></div>
+  <div id="mam-debug" style="margin-top:0.5em;font-size:0.8em;color:#666;background:#f5f5f5;padding:0.5em;border-radius:4px;white-space:pre-line;max-height:200px;overflow-y:auto;display:none;"></div>
+  <button id="toggle-mam-debug" style="margin-top:0.5em;display:none;" title="Show/Hide MAM debug information">Show Debug</button>
 </div>
 <div class="box">
   <h3>Step 3</h3>
@@ -46,6 +48,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const debugDiv = document.getElementById('debug-info');
   const loginMamBtn = document.getElementById('login-mam-btn');
   const mamResultDiv = document.getElementById('mam-result');
+  const mamDebugDiv = document.getElementById('mam-debug');
+  const toggleMamDebugBtn = document.getElementById('toggle-mam-debug');
   
   if (getIpsBtn) {
     getIpsBtn.addEventListener('click', function() {
@@ -97,6 +101,8 @@ document.addEventListener('DOMContentLoaded', function() {
       mamResultDiv.textContent = 'Logging into MAM...';
       mamResultDiv.style.color = '#666';
       loginMamBtn.disabled = true;
+      mamDebugDiv.style.display = 'none';
+      toggleMamDebugBtn.style.display = 'none';
       
       fetch('/api/login_mam', {
         method: 'POST',
@@ -112,10 +118,30 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
           mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
         }
+        
+        // Show debug information if available
+        if (data.debug_info && data.debug_info.length > 0) {
+          mamDebugDiv.textContent = data.debug_info.join('\n');
+          toggleMamDebugBtn.style.display = 'inline-block';
+          toggleMamDebugBtn.textContent = 'Show Debug';
+        }
       }).catch(error => {
         loginMamBtn.disabled = false;
         mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
       });
+    });
+  }
+  
+  // MAM debug toggle functionality
+  if (toggleMamDebugBtn) {
+    toggleMamDebugBtn.addEventListener('click', function() {
+      if (mamDebugDiv.style.display === 'none') {
+        mamDebugDiv.style.display = 'block';
+        toggleMamDebugBtn.textContent = 'Hide Debug';
+      } else {
+        mamDebugDiv.style.display = 'none';
+        toggleMamDebugBtn.textContent = 'Show Debug';
+      }
     });
   }
 });
