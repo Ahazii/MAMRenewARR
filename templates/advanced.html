@@ -5,8 +5,10 @@
   <h3>Step 1</h3>
   <div class="button-row">
     <button id="get-ips-btn" title="Open a log file and work out what the External IP address is, and get Prowlarr IP">Get IP's</button>
+    <button id="toggle-debug-btn" title="Show/Hide debug information" style="display:none;">Show Debug</button>
   </div>
   <div id="ips-result" style="margin-top:1em;font-weight:600;"></div>
+  <div id="debug-info" style="margin-top:1em;font-size:0.8em;color:#666;background:#f5f5f5;padding:0.5em;border-radius:4px;white-space:pre-line;max-height:200px;overflow-y:auto;display:none;"></div>
 </div>
 <div class="box">
   <h3>Step 2</h3>
@@ -38,26 +40,51 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const getIpsBtn = document.getElementById('get-ips-btn');
+  const toggleDebugBtn = document.getElementById('toggle-debug-btn');
   const resultDiv = document.getElementById('ips-result');
+  const debugDiv = document.getElementById('debug-info');
+  
   if (getIpsBtn) {
     getIpsBtn.addEventListener('click', function() {
       resultDiv.textContent = 'Fetching IPs...';
+      debugDiv.style.display = 'none';
+      toggleDebugBtn.style.display = 'none';
+      
       fetch('/api/get_ips').then(r => r.json()).then(data => {
         let html = '';
-        if (data.external_ip) {
+        if (data.external_ip && data.external_ip !== 'Error') {
           html += `External IP: <span style='color:#007700'>${data.external_ip}</span><br>`;
         } else {
-          html += `External IP: <span style='color:#bb0000'>Not found</span><br>`;
+          html += `External IP: <span style='color:#bb0000'>Not found/Error</span><br>`;
         }
-        if (data.vpn_ip) {
+        if (data.vpn_ip && data.vpn_ip !== 'Not Found') {
           html += `VPN Container IP: <span style='color:#0077bb'>${data.vpn_ip}</span>`;
         } else {
           html += `VPN Container IP: <span style='color:#bb0000'>Not found</span>`;
         }
         resultDiv.innerHTML = html;
-      }).catch(() => {
-        resultDiv.textContent = 'Failed to fetch IPs.';
+        
+        // Show debug info if available
+        if (data.debug_info && data.debug_info.length > 0) {
+          debugDiv.textContent = data.debug_info.join('\n');
+          toggleDebugBtn.style.display = 'inline-block';
+          toggleDebugBtn.textContent = 'Show Debug';
+        }
+      }).catch((error) => {
+        resultDiv.textContent = 'Failed to fetch IPs: ' + error.message;
       });
+    });
+  }
+  
+  if (toggleDebugBtn) {
+    toggleDebugBtn.addEventListener('click', function() {
+      if (debugDiv.style.display === 'none') {
+        debugDiv.style.display = 'block';
+        toggleDebugBtn.textContent = 'Hide Debug';
+      } else {
+        debugDiv.style.display = 'none';
+        toggleDebugBtn.textContent = 'Show Debug';
+      }
     });
   }
 });
