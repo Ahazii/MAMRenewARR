@@ -4,6 +4,8 @@ import os
 import subprocess
 import re
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 SETTINGS_FILE = os.path.join('/app/data', 'settings.json')
 
@@ -20,6 +22,28 @@ def save_settings(data):
         json.dump(data, f, indent=2)
 
 app = Flask(__name__)
+
+# Global session for MAM operations
+mam_session = None
+
+def get_mam_session():
+    """Get or create a requests session for MAM with proper headers"""
+    global mam_session
+    if mam_session is None:
+        mam_session = requests.Session()
+        mam_session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        })
+        # Add retry strategy
+        retry_strategy = Retry(
+            total=3,
+            status_forcelist=[429, 500, 502, 503, 504],
+            backoff_factor=1
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        mam_session.mount("http://", adapter)
+        mam_session.mount("https://", adapter)
+    return mam_session
 
 @app.route('/')
 def index():
@@ -166,6 +190,99 @@ def api_get_ips():
         'vpn_ip': vpn_ip,
         'debug_info': debug_info[-10:]  # Include last 10 debug messages in response
     })
+
+@app.route('/api/login_mam', methods=['POST'])
+def api_login_mam():
+    """Login to MyAnonamouse using stored credentials"""
+    settings = load_settings()
+    
+    # Get credentials from settings
+    mam_url = settings.get('mam_url', 'https://www.myanonamouse.net/')
+    username = settings.get('mam_username', '')
+    password = settings.get('mam_password', '')
+    
+    if not username or not password:
+        return jsonify({
+            'success': False, 
+            'message': 'MAM username or password not configured. Please check your settings.'
+        })
+    
+    try:
+        session = get_mam_session()
+        
+        # First, get the login page to check if we need to login
+        login_url = mam_url.rstrip('/') + '/login.php'
+        response = session.get(login_url, timeout=10)
+        
+        if response.status_code != 200:
+            return jsonify({
+                'success': False,
+                'message': f'Failed to access MAM login page. Status: {response.status_code}'
+            })
+        
+        # Check if we're already logged in by looking for indicators
+        if 'login.php' not in response.url and 'myanonamouse.net' in response.url:
+            return jsonify({
+                'success': True,
+                'message': 'Already logged into MAM',
+                'redirect_url': response.url
+            })
+        
+        # Parse the login form to get any hidden fields or CSRF tokens
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(response.text, 'html.parser')
+        login_form = soup.find('form')
+        
+        if not login_form:
+            return jsonify({
+                'success': False,
+                'message': 'Could not find login form on MAM page'
+            })
+        
+        # Prepare login data
+        login_data = {
+            'username': username,
+            'password': password
+        }
+        
+        # Add any hidden form fields
+        for hidden_input in login_form.find_all('input', type='hidden'):
+            if hidden_input.get('name') and hidden_input.get('value'):
+                login_data[hidden_input['name']] = hidden_input['value']
+        
+        # Submit login form
+        form_action = login_form.get('action', '/takelogin.php')
+        if not form_action.startswith('http'):
+            form_action = mam_url.rstrip('/') + '/' + form_action.lstrip('/')
+        
+        login_response = session.post(form_action, data=login_data, timeout=10, allow_redirects=True)
+        
+        if login_response.status_code != 200:
+            return jsonify({
+                'success': False,
+                'message': f'Login request failed. Status: {login_response.status_code}'
+            })
+        
+        # Check if login was successful
+        # Look for indicators that we're logged in (no login form, user menu, etc.)
+        if 'login.php' in login_response.url or 'error' in login_response.text.lower():
+            return jsonify({
+                'success': False,
+                'message': 'Login failed. Please check your username and password.'
+            })
+        
+        return jsonify({
+            'success': True,
+            'message': 'Successfully logged into MAM',
+            'redirect_url': login_response.url
+        })
+        
+    except Exception as e:
+        print(f"MAM login error: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Login error: {str(e)}'
+        })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

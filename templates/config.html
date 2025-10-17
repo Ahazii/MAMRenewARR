@@ -16,6 +16,13 @@
   </select>
   <label for="mam-url">Myanonamouse url:</label>
   <input type="text" id="mam-url" value="https://www.myanonamouse.net/">
+  <label for="mam-username">MAM Username:</label>
+  <input type="text" id="mam-username" placeholder="Your MAM username">
+  <label for="mam-password">MAM Password:</label>
+  <div style="display:flex;align-items:center;gap:0.5em;">
+    <input type="password" id="mam-password" placeholder="Your MAM password">
+    <button type="button" id="mam-password-toggle" title="Show/Hide password">👁️</button>
+  </div>
   <label for="security-page">Security Page:</label>
   <input type="text" id="security-page" value="https://www.myanonamouse.net/preferences/index.php?view=security">
 </div>
@@ -59,6 +66,11 @@ document.addEventListener('DOMContentLoaded', function() {
   // Elements
   const containerInput = document.getElementById('qbittorrentvpn-container');
   const logpathInput = document.getElementById('qbittorrentvpn-logpath');
+  const mamUrlInput = document.getElementById('mam-url');
+  const mamUsernameInput = document.getElementById('mam-username');
+  const mamPasswordInput = document.getElementById('mam-password');
+  const mamPasswordToggle = document.getElementById('mam-password-toggle');
+  const securityPageInput = document.getElementById('security-page');
   const saveBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Save Config');
   const cancelBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Cancel');
 
@@ -67,6 +79,10 @@ document.addEventListener('DOMContentLoaded', function() {
     fetch('/api/settings').then(r => r.json()).then(data => {
       if (data.qbittorrentvpn_container) containerInput.value = data.qbittorrentvpn_container;
       if (data.qbittorrentvpn_logpath) logpathInput.value = data.qbittorrentvpn_logpath;
+      if (data.mam_url) mamUrlInput.value = data.mam_url;
+      if (data.mam_username) mamUsernameInput.value = data.mam_username;
+      if (data.mam_password) mamPasswordInput.value = data.mam_password;
+      if (data.security_page) securityPageInput.value = data.security_page;
     });
   }
 
@@ -74,7 +90,11 @@ document.addEventListener('DOMContentLoaded', function() {
   function saveSettings() {
     const data = {
       qbittorrentvpn_container: containerInput.value,
-      qbittorrentvpn_logpath: logpathInput.value
+      qbittorrentvpn_logpath: logpathInput.value,
+      mam_url: mamUrlInput.value,
+      mam_username: mamUsernameInput.value,
+      mam_password: mamPasswordInput.value,
+      security_page: securityPageInput.value
     };
     fetch('/api/settings', {
       method: 'POST',
@@ -88,6 +108,19 @@ document.addEventListener('DOMContentLoaded', function() {
   // Revert changes
   function revertSettings() {
     loadSettings();
+  }
+
+  // Password toggle functionality
+  if (mamPasswordToggle) {
+    mamPasswordToggle.addEventListener('click', function() {
+      if (mamPasswordInput.type === 'password') {
+        mamPasswordInput.type = 'text';
+        mamPasswordToggle.textContent = '🙈';
+      } else {
+        mamPasswordInput.type = 'password';
+        mamPasswordToggle.textContent = '👁️';
+      }
+    });
   }
 
   if (saveBtn) saveBtn.addEventListener('click', saveSettings);
