@@ -31,9 +31,23 @@ def get_mam_session():
     global mam_session
     if mam_session is None:
         mam_session = requests.Session()
+        
+        # More realistic browser headers
         mam_session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0'
         })
+        
         # Add retry strategy
         retry_strategy = Retry(
             total=3,
@@ -216,10 +230,38 @@ def api_login_mam():
     try:
         session = get_mam_session()
         
-        # First, get the login page to check if we need to login
+        # First, visit the main page to establish cookies like a real browser would
+        main_url = mam_url.rstrip('/')
+        debug_info.append(f"Visiting main page first: {main_url}")
+        main_response = session.get(main_url, timeout=10)
+        debug_info.append(f"Main page status: {main_response.status_code}")
+        
+        # Check cookies after main page visit
+        initial_cookies = [cookie.name for cookie in session.cookies]
+        debug_info.append(f"Cookies after main page: {', '.join(initial_cookies) if initial_cookies else 'None'}")
+        
+        # Check cookies after main page visit
+        initial_cookies = [cookie.name for cookie in session.cookies]
+        debug_info.append(f"Cookies after main page: {', '.join(initial_cookies) if initial_cookies else 'None'}")
+        
+        # Add a small delay to appear more human-like
+        import time
+        time.sleep(1)
+        
+        # Now get the login page to check if we need to login
         login_url = mam_url.rstrip('/') + '/login.php'
         debug_info.append(f"Accessing login URL: {login_url}")
-        response = session.get(login_url, timeout=10)
+        
+        # Update headers for the login page request
+        login_headers = {
+            'Referer': main_url,
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-User': '?1'
+        }
+        
+        response = session.get(login_url, headers=login_headers, timeout=10)
         
         debug_info.append(f"Login page status: {response.status_code}")
         debug_info.append(f"Final URL after redirects: {response.url}")
@@ -304,7 +346,27 @@ def api_login_mam():
         debug_info.append(f"Submitting to: {form_action}")
         debug_info.append(f"Login data keys: {list(login_data.keys())}")
         
-        login_response = session.post(form_action, data=login_data, timeout=10, allow_redirects=True)
+        # Check that we have cookies before submitting
+        cookies_info = []
+        for cookie in session.cookies:
+            cookies_info.append(f"{cookie.name}")
+        debug_info.append(f"Cookies before login: {', '.join(cookies_info) if cookies_info else 'None'}")
+        
+        # Add another small delay
+        time.sleep(1)
+        
+        # Set proper headers for form submission
+        form_headers = {
+            'Referer': login_url,
+            'Origin': mam_url.rstrip('/'),
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-User': '?1'
+        }
+        
+        login_response = session.post(form_action, data=login_data, headers=form_headers, timeout=10, allow_redirects=True)
         
         debug_info.append(f"Login response status: {login_response.status_code}")
         debug_info.append(f"Final redirect URL: {login_response.url}")
@@ -319,13 +381,23 @@ def api_login_mam():
         # Check if login was successful - look for common failure indicators
         response_text_lower = login_response.text.lower()
         
+        # Check for specific error messages first
+        if 'cookies are not really enabled' in response_text_lower:
+            error_msg = "Cookie error detected. MAM thinks cookies are disabled."
+            debug_info.append("Specific error: Cookies not enabled")
+            return jsonify({
+                'success': False,
+                'message': error_msg,
+                'debug_info': debug_info
+            })
+        
         # Common failure indicators
         failure_indicators = [
             'login.php' in login_response.url,
             'invalid' in response_text_lower,
             'incorrect' in response_text_lower,
             'error' in response_text_lower and 'login' in response_text_lower,
-            'username' in response_text_lower and 'password' in response_text_lower
+            'username' in response_text_lower and 'password' in response_text_lower and 'form' in response_text_lower
         ]
         
         debug_info.append(f"Failure indicators: {sum(failure_indicators)} found")
@@ -337,6 +409,8 @@ def api_login_mam():
                 error_msg += " (Invalid credentials)"
             elif 'banned' in response_text_lower or 'disabled' in response_text_lower:
                 error_msg += " (Account may be banned/disabled)"
+            elif 'robot' in response_text_lower or 'bot' in response_text_lower:
+                error_msg += " (Detected as automated - need better browser simulation)"
             
             return jsonify({
                 'success': False,
