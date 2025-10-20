@@ -273,54 +273,29 @@ def api_login_mam():
                 'debug_info': debug_info
             })
         
-        # Check if we're already logged in by looking for indicators
-        if 'login.php' not in response.url and 'myanonamouse.net' in response.url:
+        # Simple login detection: if we access main page and DON'T get redirected to login.php, we're logged in
+        main_page_response = session.get(main_url, timeout=10)
+        debug_info.append(f"Main page final URL: {main_page_response.url}")
+        
+        if 'login.php' not in main_page_response.url:
+            debug_info.append("Already logged in - main page accessible without redirect to login")
             return jsonify({
                 'success': True,
-                'message': 'Already logged into MAM (redirected away from login page)',
-                'redirect_url': response.url,
+                'message': 'Already logged into MAM (main page accessible)',
+                'redirect_url': main_page_response.url,
                 'debug_info': debug_info
             })
         
-        # Parse the login form to get any hidden fields or CSRF tokens
+        # If we reach here, we need to login - parse the login form
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Check if we're already logged in by looking for page content
-        page_text = response.text.lower()
-        
-        # Look for signs that we're already logged in
-        if 'not logged in!' not in page_text and ('logout' in page_text or 'profile' in page_text or 'browse' in page_text):
-            debug_info.append("Already logged in - found logout/profile/browse links")
-            return jsonify({
-                'success': True,
-                'message': 'Already logged into MAM (detected from page content)',
-                'redirect_url': response.url,
-                'debug_info': debug_info
-            })
-        
-        # Look for the login form
         login_form = soup.find('form')
         
         if not login_form:
-            debug_info.append("No form found on page")
-            # Add a snippet of the page content to debug
-            page_snippet = response.text[:500] + "..." if len(response.text) > 500 else response.text
-            debug_info.append(f"Page content snippet: {page_snippet.replace(chr(10), ' ').replace(chr(13), ' ')}")
-            
-            # Check if this might be because we're already logged in
-            if 'not logged in!' not in page_text:
-                debug_info.append("Might already be logged in - no login error message found")
-                return jsonify({
-                    'success': True,
-                    'message': 'Possibly already logged into MAM (no login form found and no login error)',
-                    'redirect_url': response.url,
-                    'debug_info': debug_info
-                })
-            
+            debug_info.append("No login form found on login page")
             return jsonify({
                 'success': False,
-                'message': 'Could not find login form on MAM page',
+                'message': 'Could not find login form on MAM login page',
                 'debug_info': debug_info
             })
         
