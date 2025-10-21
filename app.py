@@ -735,20 +735,37 @@ def api_delete_old_sessions():
                             except Exception as js_error:
                                 debug_info.append(f"JavaScript click failed: {js_error}")
                             
-                            # Wait and check for any page changes or alerts
-                            time.sleep(1)
+                            # Wait for confirmation dialog to appear with retry logic
+                            confirmation_handled = False
+                            max_wait_attempts = 5
                             
-                            # Check if there are any alerts/confirmations
-                            try:
-                                alert = driver.switch_to.alert
-                                alert_text = alert.text
-                                debug_info.append(f"Alert detected: {alert_text}")
-                                log_info(f"Alert after remove button click: {alert_text}")
-                                alert.accept()  # Accept the alert
-                                debug_info.append("Alert accepted")
-                                time.sleep(1)
-                            except:
-                                debug_info.append("No alert detected")
+                            for wait_attempt in range(max_wait_attempts):
+                                try:
+                                    time.sleep(0.5)  # Wait a bit longer
+                                    alert = driver.switch_to.alert
+                                    alert_text = alert.text
+                                    debug_info.append(f"Confirmation dialog detected on attempt {wait_attempt + 1}: '{alert_text}'")
+                                    log_info(f"Confirmation dialog for session removal: '{alert_text}'")
+                                    
+                                    # Click "OK" to confirm removal
+                                    alert.accept()
+                                    debug_info.append("Clicked OK on confirmation dialog")
+                                    log_info("Confirmed session removal by clicking OK")
+                                    confirmation_handled = True
+                                    
+                                    # Wait for removal to process
+                                    time.sleep(3)
+                                    break  # Exit retry loop
+                                    
+                                except Exception as e:
+                                    debug_info.append(f"Attempt {wait_attempt + 1}: No dialog yet ({e})")
+                                    if wait_attempt == max_wait_attempts - 1:
+                                        debug_info.append(f"No confirmation dialog found after {max_wait_attempts} attempts")
+                                        log_info(f"No confirmation dialog appeared after {max_wait_attempts} attempts")
+                            
+                            if not confirmation_handled:
+                                debug_info.append("WARNING: No confirmation dialog was handled - session likely not removed")
+                                log_info("WARNING: Expected confirmation dialog not found - session removal may have failed")
                             
                             # Check if URL changed or page reloaded
                             post_click_url = driver.current_url
