@@ -800,7 +800,7 @@ def api_delete_old_sessions():
                                 try:
                                     # Look for common modal/dialog selectors
                                     modal_selectors = [
-                                        ".modal", "[role='dialog']", ".dialog", ".popup", 
+                                        ".modal", "[role=\"dialog\"]", ".dialog", ".popup", 
                                         "#confirm-dialog", ".confirm-popup", ".swal2-container"
                                     ]
                                     
