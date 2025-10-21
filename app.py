@@ -721,47 +721,122 @@ def api_delete_old_sessions():
                             pre_click_url = driver.current_url
                             debug_info.append(f"Pre-click URL: {pre_click_url}")
                             
-                            # Try multiple click methods
-                            debug_info.append(f"Clicking remove button for session {session['created_date_text']}")
+                            # Detailed button analysis before clicking
+                            button = session['remove_button']
+                            debug_info.append(f"Button details: tag={button.tag_name}, value='{button.get_attribute('value')}', data-secact='{button.get_attribute('data-secact')}'")
+                            debug_info.append(f"Button enabled: {button.is_enabled()}, displayed: {button.is_displayed()}, clickable: {button.is_enabled() and button.is_displayed()}")
+                            debug_info.append(f"Button location: {button.location}, size: {button.size}")
+                            debug_info.append(f"Button HTML: {button.get_attribute('outerHTML')[:200]}...")
+                            
+                            # Try scrolling to button first
+                            try:
+                                driver.execute_script("arguments[0].scrollIntoView(true);", button)
+                                time.sleep(0.5)
+                                debug_info.append("Scrolled button into view")
+                            except Exception as scroll_error:
+                                debug_info.append(f"Scroll error: {scroll_error}")
+                            
+                            debug_info.append(f"Attempting to click remove button for session {session['created_date_text']}")
                             
                             # Method 1: Regular click
-                            session['remove_button'].click()
+                            click_successful = False
+                            try:
+                                button.click()
+                                debug_info.append("Regular click executed")
+                                click_successful = True
+                            except Exception as click_error:
+                                debug_info.append(f"Regular click failed: {click_error}")
+                            
                             time.sleep(0.5)
                             
-                            # Method 2: Try JavaScript click as backup
+                            # Method 2: JavaScript click as backup
                             try:
-                                driver.execute_script("arguments[0].click();", session['remove_button'])
-                                debug_info.append("Also tried JavaScript click")
+                                driver.execute_script("arguments[0].click();", button)
+                                debug_info.append("JavaScript click executed")
+                                click_successful = True
                             except Exception as js_error:
                                 debug_info.append(f"JavaScript click failed: {js_error}")
                             
-                            # Wait for confirmation dialog to appear with retry logic
+                            # Method 3: Try ActionChains click
+                            try:
+                                from selenium.webdriver.common.action_chains import ActionChains
+                                actions = ActionChains(driver)
+                                actions.move_to_element(button).click().perform()
+                                debug_info.append("ActionChains click executed")
+                                click_successful = True
+                            except Exception as action_error:
+                                debug_info.append(f"ActionChains click failed: {action_error}")
+                            
+                            if not click_successful:
+                                debug_info.append("ERROR: All click methods failed!")
+                                log_info(f"All click methods failed for session {session['created_date_text']}")
+                                continue
+                            
+                            # Wait and check for different types of popups/dialogs
                             confirmation_handled = False
                             max_wait_attempts = 5
                             
                             for wait_attempt in range(max_wait_attempts):
+                                time.sleep(0.5)
+                                
+                                # Method 1: Check for browser alert
                                 try:
-                                    time.sleep(0.5)  # Wait a bit longer
                                     alert = driver.switch_to.alert
                                     alert_text = alert.text
-                                    debug_info.append(f"Confirmation dialog detected on attempt {wait_attempt + 1}: '{alert_text}'")
-                                    log_info(f"Confirmation dialog for session removal: '{alert_text}'")
+                                    debug_info.append(f"Browser alert detected on attempt {wait_attempt + 1}: '{alert_text}'")
+                                    log_info(f"Browser alert for session removal: '{alert_text}'")
                                     
                                     # Click "OK" to confirm removal
                                     alert.accept()
-                                    debug_info.append("Clicked OK on confirmation dialog")
-                                    log_info("Confirmed session removal by clicking OK")
+                                    debug_info.append("Clicked OK on browser alert")
+                                    log_info("Confirmed session removal by clicking OK on alert")
                                     confirmation_handled = True
-                                    
-                                    # Wait for removal to process
                                     time.sleep(3)
-                                    break  # Exit retry loop
+                                    break
+                                except:
+                                    pass  # No browser alert
+                                
+                                # Method 2: Check for modal dialogs or confirmation elements
+                                try:
+                                    # Look for common modal/dialog selectors
+                                    modal_selectors = [
+                                        ".modal", "[role='dialog']", ".dialog", ".popup", 
+                                        "#confirm-dialog", ".confirm-popup", ".swal2-container"
+                                    ]
                                     
-                                except Exception as e:
-                                    debug_info.append(f"Attempt {wait_attempt + 1}: No dialog yet ({e})")
-                                    if wait_attempt == max_wait_attempts - 1:
-                                        debug_info.append(f"No confirmation dialog found after {max_wait_attempts} attempts")
-                                        log_info(f"No confirmation dialog appeared after {max_wait_attempts} attempts")
+                                    for selector in modal_selectors:
+                                        modals = driver.find_elements(By.CSS_SELECTOR, selector)
+                                        for modal in modals:
+                                            if modal.is_displayed():
+                                                debug_info.append(f"Modal dialog detected with selector '{selector}': {modal.get_attribute('outerHTML')[:150]}...")
+                                                
+                                                # Look for OK/Confirm button in modal
+                                                ok_buttons = modal.find_elements(By.CSS_SELECTOR, 
+                                                    "button:contains('OK'), button:contains('Confirm'), button:contains('Yes'), input[value*='OK'], input[value*='Confirm']")
+                                                
+                                                if ok_buttons:
+                                                    ok_buttons[0].click()
+                                                    debug_info.append("Clicked OK button in modal dialog")
+                                                    confirmation_handled = True
+                                                    time.sleep(3)
+                                                    break
+                                        
+                                        if confirmation_handled:
+                                            break
+                                            
+                                except Exception as modal_error:
+                                    debug_info.append(f"Modal check error: {modal_error}")
+                                
+                                if confirmation_handled:
+                                    break
+                                    
+                                # Check if page changed (might indicate successful click without popup)
+                                current_page_url = driver.current_url
+                                debug_info.append(f"Attempt {wait_attempt + 1}: Current URL: {current_page_url}")
+                                
+                                if wait_attempt == max_wait_attempts - 1:
+                                    debug_info.append(f"No confirmation dialog found after {max_wait_attempts} attempts")
+                                    log_info(f"No confirmation dialog appeared after {max_wait_attempts} attempts")
                             
                             if not confirmation_handled:
                                 debug_info.append("WARNING: No confirmation dialog was handled - session likely not removed")
