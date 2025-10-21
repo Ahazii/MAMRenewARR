@@ -32,12 +32,12 @@ def get_mam_session():
     if mam_session is None:
         mam_session = requests.Session()
         
-        # More realistic browser headers
+        # More realistic browser headers with JavaScript support indicated
         mam_session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Encoding': 'identity',  # Disable compression to avoid decoding issues
             'DNT': '1',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
@@ -300,6 +300,73 @@ def api_login_mam():
             all_inputs = soup.find_all('input')
             if not all_inputs:
                 debug_info.append("No input fields found on page")
+                
+                # Check if the response is properly decoded
+                page_text = response.text
+                if 'Login Email:' in page_text and 'Password:' in page_text:
+                    debug_info.append("Found login text but no input fields - possible JavaScript requirement")
+                    # Try to find the form action by looking for form elements in the raw HTML
+                    if '<form' in page_text:
+                        import re
+                        form_match = re.search(r'<form[^>]*action=["\']([^"\'\']*)["\']', page_text)
+                        if form_match:
+                            debug_info.append(f"Found form action: {form_match.group(1)}")
+                    
+                    # For MAM, try the standard takelogin.php approach with known field names
+                    debug_info.append("Attempting standard MAM login with hardcoded field names")
+                    
+                    # MAM typically uses these field names
+                    login_data = {
+                        'username': username,  # Try username first
+                        'password': password
+                    }
+                    
+                    # Also try email field
+                    if '@' in username:
+                        login_data = {
+                            'email': username,
+                            'password': password
+                        }
+                    
+                    # Submit to standard MAM login endpoint
+                    form_action = mam_url.rstrip('/') + '/takelogin.php'
+                    debug_info.append(f"Submitting to: {form_action}")
+                    debug_info.append(f"Login data keys: {list(login_data.keys())}")
+                    
+                    time.sleep(1)
+                    
+                    # Set proper headers for form submission
+                    form_headers = {
+                        'Referer': response.url,
+                        'Origin': mam_url.rstrip('/'),
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Sec-Fetch-Dest': 'document',
+                        'Sec-Fetch-Mode': 'navigate',
+                        'Sec-Fetch-Site': 'same-origin',
+                        'Sec-Fetch-User': '?1'
+                    }
+                    
+                    login_response = session.post(form_action, data=login_data, headers=form_headers, timeout=10, allow_redirects=True)
+                    
+                    debug_info.append(f"Login response status: {login_response.status_code}")
+                    debug_info.append(f"Final redirect URL: {login_response.url}")
+                    
+                    # Check if login was successful
+                    if 'login.php' not in login_response.url:
+                        return jsonify({
+                            'success': True,
+                            'message': 'Successfully logged into MAM using standard approach',
+                            'redirect_url': login_response.url,
+                            'debug_info': debug_info
+                        })
+                    else:
+                        debug_info.append("Standard approach failed - still on login page")
+                        return jsonify({
+                            'success': False,
+                            'message': 'Login failed using standard approach',
+                            'debug_info': debug_info
+                        })
+                
                 # Show page snippet for debugging
                 page_snippet = response.text[:1000] + "..." if len(response.text) > 1000 else response.text
                 debug_info.append(f"Page content: {page_snippet}")
