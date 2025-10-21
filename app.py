@@ -625,6 +625,17 @@ def api_delete_old_sessions():
             driver.get(security_page_url)
             time.sleep(3)
             
+            # Count sessions at start of iteration
+            try:
+                initial_table = driver.find_element(By.CLASS_NAME, "sessions")
+                initial_rows = initial_table.find_elements(By.TAG_NAME, "tr")
+                initial_session_count = len(initial_rows) - 1  # Subtract header
+                debug_info.append(f"Iteration {total_iterations + 1}: Found {initial_session_count} sessions at start")
+                log_debug(f"Iteration {total_iterations + 1}: Starting with {initial_session_count} sessions")
+            except Exception as e:
+                debug_info.append(f"Could not count initial sessions: {e}")
+                initial_session_count = 0
+            
             try:
                 # Find the sessions table
                 table = driver.find_element(By.CLASS_NAME, "sessions")
@@ -706,20 +717,93 @@ def api_delete_old_sessions():
                         log_info(f"Attempting to remove session from {session['created_date_text']}")
                         
                         try:
-                            # Click remove button
+                            # Get current page info before click
+                            pre_click_url = driver.current_url
+                            debug_info.append(f"Pre-click URL: {pre_click_url}")
+                            
+                            # Try multiple click methods
+                            debug_info.append(f"Clicking remove button for session {session['created_date_text']}")
+                            
+                            # Method 1: Regular click
                             session['remove_button'].click()
-                            time.sleep(2)  # Wait for action
+                            time.sleep(0.5)
+                            
+                            # Method 2: Try JavaScript click as backup
+                            try:
+                                driver.execute_script("arguments[0].click();", session['remove_button'])
+                                debug_info.append("Also tried JavaScript click")
+                            except Exception as js_error:
+                                debug_info.append(f"JavaScript click failed: {js_error}")
+                            
+                            # Wait and check for any page changes or alerts
+                            time.sleep(1)
+                            
+                            # Check if there are any alerts/confirmations
+                            try:
+                                alert = driver.switch_to.alert
+                                alert_text = alert.text
+                                debug_info.append(f"Alert detected: {alert_text}")
+                                log_info(f"Alert after remove button click: {alert_text}")
+                                alert.accept()  # Accept the alert
+                                debug_info.append("Alert accepted")
+                                time.sleep(1)
+                            except:
+                                debug_info.append("No alert detected")
+                            
+                            # Check if URL changed or page reloaded
+                            post_click_url = driver.current_url
+                            debug_info.append(f"Post-click URL: {post_click_url}")
+                            
+                            if post_click_url != pre_click_url:
+                                debug_info.append("Page URL changed - possible redirect")
+                            else:
+                                debug_info.append("Page URL unchanged - checking for AJAX response")
+                            
+                            # Wait longer for any AJAX operations
+                            time.sleep(2)
+                            
+                            # Check if the button still exists (it might disappear if session removed)
+                            button_still_exists = True
+                            try:
+                                # Try to find the button again
+                                last_cell = cells[-1]
+                                test_button = last_cell.find_element(By.CSS_SELECTOR, 'input[data-secact="rs"]')
+                                debug_info.append("Remove button still exists after click")
+                            except:
+                                button_still_exists = False
+                                debug_info.append("Remove button no longer exists after click")
                             
                             deleted_count += 1
                             removed_this_iteration = True
-                            debug_info.append(f"Successfully removed session {deleted_count}")
-                            log_info(f"Successfully removed session {deleted_count} (from {session['created_date_text']})")
+                            debug_info.append(f"Completed removal attempt {deleted_count} for session {session['created_date_text']}")
+                            log_info(f"Completed removal attempt {deleted_count} (from {session['created_date_text']}) - button_exists_after: {button_still_exists}")
                             break  # Remove one at a time
                             
                         except Exception as e:
                             debug_info.append(f"Error clicking remove button: {e}")
                             log_info(f"Error clicking remove button for session {session['created_date_text']}: {e}")
                             continue
+                
+                # Verify if session count actually changed
+                if removed_this_iteration:
+                    # Reload page and check session count
+                    time.sleep(1)
+                    driver.get(security_page_url)
+                    time.sleep(2)
+                    
+                    try:
+                        final_table = driver.find_element(By.CLASS_NAME, "sessions")
+                        final_rows = final_table.find_elements(By.TAG_NAME, "tr")
+                        final_session_count = len(final_rows) - 1
+                        
+                        debug_info.append(f"Session count: {initial_session_count} -> {final_session_count}")
+                        log_info(f"Iteration {total_iterations + 1}: Session count changed from {initial_session_count} to {final_session_count}")
+                        
+                        if final_session_count >= initial_session_count:
+                            debug_info.append("WARNING: Session count did not decrease - removal may have failed")
+                            log_info(f"WARNING: Session removal appeared to fail - count unchanged ({initial_session_count} -> {final_session_count})")
+                    except Exception as e:
+                        debug_info.append(f"Could not verify final session count: {e}")
                 
                 if not removed_this_iteration:
                     debug_info.append("No more sessions to remove")
