@@ -561,6 +561,161 @@ def api_login_mam():
             'debug_info': debug_info
         })
 
+@app.route('/api/login_mam_selenium', methods=['POST'])
+def api_login_mam_selenium():
+    """Login to MAM using Selenium for JavaScript support"""
+    settings = load_settings()
+    debug_info = []
+    
+    # Get credentials from settings
+    mam_url = settings.get('mam_url', 'https://www.myanonamouse.net/')
+    username = settings.get('mam_username', '')
+    password = settings.get('mam_password', '')
+    
+    debug_info.append(f"MAM URL: {mam_url}")
+    debug_info.append(f"Using Selenium for JavaScript support")
+    debug_info.append(f"Username provided: {'Yes' if username else 'No'}")
+    debug_info.append(f"Password provided: {'Yes' if password else 'No'}")
+    
+    if not username or not password:
+        return jsonify({
+            'success': False,
+            'message': 'MAM username or password not configured. Please check your settings.',
+            'debug_info': debug_info
+        })
+    
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.chrome.options import Options
+        from selenium.common.exceptions import NoSuchElementException
+        
+        # Setup Chrome options for headless browsing
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        
+        debug_info.append("Starting Chrome browser")
+        driver = webdriver.Chrome(options=chrome_options)
+        
+        try:
+            # Navigate to MAM login page
+            login_url = mam_url.rstrip('/') + '/login.php'
+            debug_info.append(f"Navigating to: {login_url}")
+            driver.get(login_url)
+            
+            # Wait for page to load
+            time.sleep(2)
+            debug_info.append(f"Current URL: {driver.current_url}")
+            
+            # Check if already logged in
+            if 'login.php' not in driver.current_url:
+                debug_info.append("Already logged in - redirected away from login page")
+                return jsonify({
+                    'success': True,
+                    'message': 'Already logged into MAM',
+                    'redirect_url': driver.current_url,
+                    'debug_info': debug_info
+                })
+            
+            # Find email and password fields
+            try:
+                email_field = driver.find_element(By.NAME, "email")
+                password_field = driver.find_element(By.NAME, "password")
+                debug_info.append("Found email and password fields")
+                
+                # Enter credentials
+                email_field.clear()
+                email_field.send_keys(username)
+                password_field.clear()
+                password_field.send_keys(password)
+                debug_info.append("Entered credentials")
+                
+                # Find and click remember me checkbox
+                try:
+                    remember_checkbox = driver.find_element(By.NAME, "rememberMe")
+                    if not remember_checkbox.is_selected():
+                        remember_checkbox.click()
+                        debug_info.append("Checked remember me")
+                except NoSuchElementException:
+                    debug_info.append("Remember me checkbox not found")
+                
+                # Find and click login button
+                login_button = driver.find_element(By.CSS_SELECTOR, "input[type='submit']")
+                debug_info.append(f"Found login button: {login_button.get_attribute('value')}")
+                
+                # Click login button
+                login_button.click()
+                debug_info.append("Clicked login button")
+                
+                # Wait for redirect or error
+                time.sleep(3)
+                final_url = driver.current_url
+                debug_info.append(f"Final URL: {final_url}")
+                
+                # Check if login was successful
+                if 'login.php' not in final_url:
+                    debug_info.append("Login successful - redirected away from login page")
+                    
+                    # Get cookies for potential future use
+                    cookies = driver.get_cookies()
+                    debug_info.append(f"Got {len(cookies)} cookies")
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': 'Successfully logged into MAM using Selenium',
+                        'redirect_url': final_url,
+                        'debug_info': debug_info
+                    })
+                else:
+                    # Check for error messages
+                    page_source = driver.page_source
+                    if 'cookies are not really enabled' in page_source:
+                        error_msg = "Cookie error detected (even with Selenium)"
+                    elif 'Login failed' in page_source or 'login failed' in page_source:
+                        error_msg = "Login failed - check credentials"
+                    else:
+                        error_msg = "Login failed - still on login page"
+                    
+                    debug_info.append(f"Login failed: {error_msg}")
+                    # Add page snippet for debugging
+                    debug_info.append(f"Page contains: {page_source[:500]}...")
+                    
+                    return jsonify({
+                        'success': False,
+                        'message': error_msg,
+                        'debug_info': debug_info
+                    })
+                    
+            except NoSuchElementException as e:
+                debug_info.append(f"Could not find form elements: {str(e)}")
+                return jsonify({
+                    'success': False,
+                    'message': 'Could not find login form elements',
+                    'debug_info': debug_info
+                })
+                
+        finally:
+            driver.quit()
+            debug_info.append("Closed browser")
+            
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'message': 'Selenium not available. Install selenium and chrome driver.',
+            'debug_info': debug_info
+        })
+    except Exception as e:
+        debug_info.append(f"Selenium error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Selenium login error: {str(e)}',
+            'debug_info': debug_info
+        })
+
 @app.route('/api/view_mam_page', methods=['GET'])
 def api_view_mam_page():
     """View the current MAM page content for debugging"""

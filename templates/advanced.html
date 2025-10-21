@@ -14,6 +14,7 @@
   <h3>Step 2</h3>
   <div class="button-row">
     <button id="login-mam-btn" title="Open and Log into the Website called Myanonymouse">Log into MAM</button>
+    <button id="login-mam-selenium-btn" title="Login using Selenium (JavaScript enabled)">Selenium Login</button>
     <button id="view-mam-page-btn" title="Open MAM website in a new browser window">Open MAM Page</button>
     <button title="Switch to the security page of myananamouse">View Sessions</button>
     <button title="Delete all of the old sessions">Delete old Sessions</button>
@@ -48,6 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const resultDiv = document.getElementById('ips-result');
   const debugDiv = document.getElementById('debug-info');
   const loginMamBtn = document.getElementById('login-mam-btn');
+  const loginMamSeleniumBtn = document.getElementById('login-mam-selenium-btn');
   const viewMamPageBtn = document.getElementById('view-mam-page-btn');
   const mamResultDiv = document.getElementById('mam-result');
   const mamDebugDiv = document.getElementById('mam-debug');
@@ -144,6 +146,43 @@ document.addEventListener('DOMContentLoaded', function() {
         mamDebugDiv.style.display = 'none';
         toggleMamDebugBtn.textContent = 'Show Debug';
       }
+    });
+  }
+  
+  // Selenium Log into MAM button functionality
+  if (loginMamSeleniumBtn) {
+    loginMamSeleniumBtn.addEventListener('click', function() {
+      mamResultDiv.textContent = 'Logging into MAM with Selenium...';
+      mamResultDiv.style.color = '#666';
+      loginMamSeleniumBtn.disabled = true;
+      mamDebugDiv.style.display = 'none';
+      toggleMamDebugBtn.style.display = 'none';
+      
+      fetch('/api/login_mam_selenium', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(r => r.json()).then(data => {
+        loginMamSeleniumBtn.disabled = false;
+        
+        if (data.success) {
+          mamResultDiv.innerHTML = `<span style='color:#007700'>✓ ${data.message}</span>`;
+          if (data.redirect_url) {
+            mamResultDiv.innerHTML += `<br><small>Redirected to: ${data.redirect_url}</small>`;
+          }
+        } else {
+          mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+        }
+        
+        // Show debug information if available
+        if (data.debug_info && data.debug_info.length > 0) {
+          mamDebugDiv.textContent = data.debug_info.join('\n');
+          toggleMamDebugBtn.style.display = 'inline-block';
+          toggleMamDebugBtn.textContent = 'Show Debug';
+        }
+      }).catch(error => {
+        loginMamSeleniumBtn.disabled = false;
+        mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+      });
     });
   }
   
