@@ -26,11 +26,12 @@ docker pull ghcr.io/yourusername/mamrenewarr:latest
 # Create persistent storage
 mkdir -p /mnt/user/appdata/MAMRenewARR
 
-# Run container
+# Run container (with Docker socket access for Step 3)
 docker run -d \
   --name mamrenewarr \
   -p 5000:5000 \
   -v /mnt/user/appdata/MAMRenewARR:/app/data \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
   --restart unless-stopped \
   ghcr.io/yourusername/mamrenewarr:latest
 ```
@@ -45,11 +46,12 @@ cd mamrenewarr
 # Build image
 docker build -t mamrenewarr:latest .
 
-# Run container
+# Run container (with Docker socket access for Step 3)
 docker run -d \
   --name mamrenewarr \
   -p 5000:5000 \
   -v /mnt/user/appdata/MAMRenewARR:/app/data \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
   --restart unless-stopped \
   mamrenewarr:latest
 ```
