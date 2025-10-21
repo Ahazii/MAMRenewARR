@@ -1181,41 +1181,22 @@ def api_create_qbittorrent_cookie():
     """Create qBittorrent session cookie"""
     log_info("Create qBittorrent Session Cookie request started")
     
-    # Get IP addresses from existing data (should be available from previous Get IPs call)
     try:
-        # We'll use the /api/get_ips endpoint to get current IP values
-        settings = load_settings()
-        debug_info = []
+        # Get VPN IP by calling the existing get_ips endpoint
+        from flask import current_app
+        with current_app.test_client() as client:
+            ip_response = client.get('/api/get_ips')
+            ip_data = ip_response.get_json()
         
-        # Get VPN IP for qBittorrent
-        # Try to read from the same logic used in get_ips
-        vpn_ip = "Not Found"
-        logpath = settings.get('qbittorrentvpn_logpath', '/app/shared/qbittorrent-logs/qbittorrent.log')
-        
-        if os.path.exists(logpath):
-            try:
-                with open(logpath, 'r', encoding='utf-8', errors='ignore') as f:
-                    lines = f.readlines()
-                
-                # Look for VPN IP patterns
-                for line in reversed(lines[-500:]):  # Check last 500 lines
-                    if 'Your IP:' in line or 'IP Address:' in line:
-                        import re
-                        ip_match = re.search(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b', line)
-                        if ip_match:
-                            potential_ip = ip_match.group()
-                            if not potential_ip.startswith(('127.', '192.168.', '10.', '172.')):
-                                vpn_ip = potential_ip
-                                break
-            except Exception as e:
-                debug_info.append(f"Error reading VPN IP: {e}")
-        
-        if vpn_ip == "Not Found":
+        if not ip_data or ip_data.get('vpn_ip') == 'Not Found':
             return jsonify({
                 'success': False,
                 'message': 'VPN IP not found. Please click "Get IPs" first to detect the VPN IP address.',
-                'debug_info': debug_info
+                'debug_info': ['VPN IP detection failed or not run yet']
             })
+        
+        vpn_ip = ip_data.get('vpn_ip')
+        debug_info = [f"Using VPN IP from Get IPs: {vpn_ip}"]
         
         # Create qBittorrent session cookie
         result = create_session_cookie(
