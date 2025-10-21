@@ -1142,15 +1142,20 @@ def create_session_cookie(cookie_type, ip_address, use_asn, allow_dynamic_seedbo
                 debug_info.append("Cookie appears to be empty or too short")
                 return {'success': False, 'message': 'Cookie extraction failed - empty or invalid cookie', 'debug_info': debug_info}
             
-            # Store cookie in settings
+            # Store cookie in settings with timestamp
+            from datetime import datetime
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
             settings = load_settings()
             if cookie_type == 'qBittorrent':
                 settings['qbittorrent_session_cookie'] = cookie_value
+                settings['qbittorrent_cookie_obtained_time'] = current_time
             elif cookie_type == 'Prowlarr':
                 settings['prowlarr_session_cookie'] = cookie_value
+                settings['prowlarr_cookie_obtained_time'] = current_time
             
             save_settings(settings)
-            debug_info.append(f"Saved {cookie_type} cookie to settings")
+            debug_info.append(f"Saved {cookie_type} cookie and timestamp ({current_time}) to settings")
             
             # Refresh the page to show the new session
             debug_info.append("Refreshing page to show new session")

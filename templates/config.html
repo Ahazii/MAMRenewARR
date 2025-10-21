@@ -71,6 +71,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const mamPasswordInput = document.getElementById('mam-password');
   const mamPasswordToggle = document.getElementById('mam-password-toggle');
   const securityPageInput = document.getElementById('security-page');
+  const loglevelSelect = document.getElementById('loglevel');
   const saveBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Save Config');
   const cancelBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Cancel');
 
@@ -83,6 +84,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (data.mam_username) mamUsernameInput.value = data.mam_username;
       if (data.mam_password) mamPasswordInput.value = data.mam_password;
       if (data.security_page) securityPageInput.value = data.security_page;
+      if (data.loglevel) loglevelSelect.value = data.loglevel;
     });
   }
 
@@ -94,7 +96,8 @@ document.addEventListener('DOMContentLoaded', function() {
       mam_url: mamUrlInput.value,
       mam_username: mamUsernameInput.value,
       mam_password: mamPasswordInput.value,
-      security_page: securityPageInput.value
+      security_page: securityPageInput.value,
+      loglevel: loglevelSelect.value
     };
     fetch('/api/settings', {
       method: 'POST',

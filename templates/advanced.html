@@ -29,11 +29,11 @@
   <div style="margin-top:1.5em;">
     <h4>Session Cookies:</h4>
     <div style="margin-bottom:1em;">
-      <label style="display:block;margin-bottom:0.3em;font-weight:600;">qBittorrent Cookie:</label>
+      <label id="qbittorrent-cookie-label" style="display:block;margin-bottom:0.3em;font-weight:600;">qBittorrent Cookie:</label>
       <textarea id="qbittorrent-cookie-display" readonly style="width:100%;height:60px;font-family:monospace;font-size:0.8em;background:#f9f9f9;border:1px solid #ddd;border-radius:4px;padding:0.5em;resize:vertical;" placeholder="No cookie generated yet..."></textarea>
     </div>
     <div>
-      <label style="display:block;margin-bottom:0.3em;font-weight:600;">Prowlarr Cookie:</label>
+      <label id="prowlarr-cookie-label" style="display:block;margin-bottom:0.3em;font-weight:600;">Prowlarr Cookie:</label>
       <textarea id="prowlarr-cookie-display" readonly style="width:100%;height:60px;font-family:monospace;font-size:0.8em;background:#f9f9f9;border:1px solid #ddd;border-radius:4px;padding:0.5em;resize:vertical;" placeholder="No cookie generated yet..."></textarea>
     </div>
   </div>
@@ -71,19 +71,40 @@ document.addEventListener('DOMContentLoaded', function() {
   const createProwlarrSessionBtn = document.getElementById('create-prowlarr-session-btn');
   const qbittorrentCookieDisplay = document.getElementById('qbittorrent-cookie-display');
   const prowlarrCookieDisplay = document.getElementById('prowlarr-cookie-display');
+  const qbittorrentCookieLabel = document.getElementById('qbittorrent-cookie-label');
+  const prowlarrCookieLabel = document.getElementById('prowlarr-cookie-label');
   
   // Function to load and display existing cookies
   function loadExistingCookies() {
     fetch('/api/settings')
       .then(r => r.json())
       .then(settings => {
+        // Update qBittorrent cookie and label
         if (settings.qbittorrent_session_cookie) {
           qbittorrentCookieDisplay.value = settings.qbittorrent_session_cookie;
           qbittorrentCookieDisplay.placeholder = '';
+          
+          let qbLabel = 'qBittorrent Cookie';
+          if (settings.qbittorrent_cookie_obtained_time) {
+            qbLabel += ' - Time/Date Obtained: ' + settings.qbittorrent_cookie_obtained_time;
+          }
+          qbittorrentCookieLabel.textContent = qbLabel;
+        } else {
+          qbittorrentCookieLabel.textContent = 'qBittorrent Cookie:';
         }
+        
+        // Update Prowlarr cookie and label
         if (settings.prowlarr_session_cookie) {
           prowlarrCookieDisplay.value = settings.prowlarr_session_cookie;
           prowlarrCookieDisplay.placeholder = '';
+          
+          let prowlarrLabel = 'Prowlarr Cookie';
+          if (settings.prowlarr_cookie_obtained_time) {
+            prowlarrLabel += ' - Time/Date Obtained: ' + settings.prowlarr_cookie_obtained_time;
+          }
+          prowlarrCookieLabel.textContent = prowlarrLabel;
+        } else {
+          prowlarrCookieLabel.textContent = 'Prowlarr Cookie:';
         }
       })
       .catch(error => {
