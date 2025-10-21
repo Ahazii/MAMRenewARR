@@ -7,10 +7,21 @@ import re
 from bs4 import BeautifulSoup
 from datetime import datetime
 import atexit
+import logging
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 SETTINGS_FILE = os.path.join('/app/data', 'settings.json')
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()  # This goes to container logs
+    ]
+)
+logger = logging.getLogger(__name__)
 
 def load_settings():
     # Ensure data directory exists
@@ -23,8 +34,36 @@ def load_settings():
 def save_settings(data):
     with open(SETTINGS_FILE, 'w') as f:
         json.dump(data, f, indent=2)
+    # Update log level when settings are saved
+    update_log_level()
+
+def update_log_level():
+    """Update logging level based on settings"""
+    settings = load_settings()
+    log_level = settings.get('loglevel', 'Info')
+    
+    if log_level.lower() == 'debug':
+        logger.setLevel(logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.debug("Log level set to DEBUG")
+    else:
+        logger.setLevel(logging.INFO)
+        logging.getLogger().setLevel(logging.INFO)
+        logger.info("Log level set to INFO")
+
+def log_info(message):
+    """Log info level message"""
+    logger.info(message)
+
+def log_debug(message):
+    """Log debug level message"""
+    logger.debug(message)
 
 app = Flask(__name__)
+
+# Initialize logging level from settings
+update_log_level()
+log_info("MAMRenewARR application starting up")
 
 # Global browser instance for session management
 global_driver = None
@@ -35,9 +74,9 @@ def cleanup_global_driver():
     if global_driver:
         try:
             global_driver.quit()
-            print("Global browser instance closed")
+            log_info("Global browser instance closed")
         except Exception as e:
-            print(f"Error closing global browser: {e}")
+            log_info(f"Error closing global browser: {e}")
         finally:
             global_driver = None
 
@@ -53,9 +92,10 @@ def get_or_create_global_driver():
         try:
             # Test if driver is still alive by getting current URL
             _ = global_driver.current_url
+            log_debug("Reusing existing global browser instance")
             return global_driver
         except Exception as e:
-            print(f"Global driver is dead, creating new one. Error: {e}")
+            log_info(f"Global driver is dead, creating new one. Error: {e}")
             global_driver = None
     
     # Create new driver
@@ -75,11 +115,11 @@ def get_or_create_global_driver():
         
         service = Service(ChromeDriverManager().install())
         global_driver = webdriver.Chrome(service=service, options=chrome_options)
-        print("Created new global browser instance")
+        log_info("Created new global browser instance")
         return global_driver
         
     except Exception as e:
-        print(f"Error creating global driver: {e}")
+        log_info(f"Error creating global driver: {e}")
         return None
 
 def ensure_mam_login(driver, settings):
@@ -327,6 +367,7 @@ def api_get_ips():
 @app.route('/api/login_mam', methods=['POST'])
 def api_login_mam():
     """Login to MyAnonamouse using global Selenium driver"""
+    log_info("MAM login attempt started")
     settings = load_settings()
     debug_info = []
     
@@ -334,6 +375,10 @@ def api_login_mam():
     mam_url = settings.get('mam_url', 'https://www.myanonamouse.net/')
     username = settings.get('mam_username', '')
     password = settings.get('mam_password', '')
+    
+    log_debug(f"MAM URL: {mam_url}")
+    log_debug(f"Username provided: {'Yes' if username else 'No'}")
+    log_debug(f"Password provided: {'Yes' if password else 'No'}")
     
     debug_info.append(f"MAM URL: {mam_url}")
     debug_info.append(f"Using global Selenium driver")
@@ -362,6 +407,7 @@ def api_login_mam():
         try:
             ensure_mam_login(driver, settings)
             debug_info.append("Login successful")
+            log_info("MAM login successful")
             
             return jsonify({
                 'success': True,
@@ -372,6 +418,7 @@ def api_login_mam():
             
         except Exception as e:
             debug_info.append(f"Login failed: {str(e)}")
+            log_info(f"MAM login failed: {str(e)}")
             return jsonify({
                 'success': False,
                 'message': f'Login failed: {str(e)}',
@@ -449,8 +496,10 @@ def api_view_mam_page():
 @app.route('/api/view_sessions', methods=['POST'])
 def api_view_sessions():
     """Navigate global browser to MAM security/sessions page"""
+    log_info("View Sessions request started")
     settings = load_settings()
     security_page_url = settings.get('security_page', 'https://www.myanonamouse.net/preferences/index.php?view=security')
+    log_debug(f"Security page URL: {security_page_url}")
     debug_info = []
     
     try:
@@ -478,6 +527,7 @@ def api_view_sessions():
         
         # Navigate to security page
         debug_info.append(f"Navigating global browser to security page: {security_page_url}")
+        log_info(f"Navigating global browser to security page")
         driver.get(security_page_url)
         time.sleep(3)
         
@@ -486,6 +536,8 @@ def api_view_sessions():
         page_title = driver.title
         debug_info.append(f"Navigated to: {current_url}")
         debug_info.append(f"Page title: {page_title}")
+        log_debug(f"Navigated to: {current_url}")
+        log_debug(f"Page title: {page_title}")
         
         # Quick check for sessions table to confirm we're on the right page
         from selenium.webdriver.common.by import By
@@ -531,8 +583,10 @@ def api_view_sessions():
 @app.route('/api/delete_old_sessions', methods=['POST'])
 def api_delete_old_sessions():
     """Delete all old MAM sessions except the newest one"""
+    log_info("Delete Old Sessions request started")
     settings = load_settings()
     security_page_url = settings.get('security_page', 'https://www.myanonamouse.net/preferences/index.php?view=security')
+    log_debug(f"Security page URL: {security_page_url}")
     debug_info = []
     
     try:
@@ -583,6 +637,7 @@ def api_delete_old_sessions():
                 # Parse sessions with dates
                 sessions = []
                 debug_info.append(f"Processing {len(rows)-1} session rows (excluding header)")
+                log_debug(f"Processing {len(rows)-1} session rows for deletion analysis")
                 
                 for i, row in enumerate(rows[1:]):  # Skip header
                     cells = row.find_elements(By.TAG_NAME, "td")
@@ -648,6 +703,7 @@ def api_delete_old_sessions():
                 for session in sessions[:-1]:  # All except newest
                     if session['remove_button']:
                         debug_info.append(f"Removing session from {session['created_date_text']}")
+                        log_info(f"Attempting to remove session from {session['created_date_text']}")
                         
                         try:
                             # Click remove button
@@ -657,10 +713,12 @@ def api_delete_old_sessions():
                             deleted_count += 1
                             removed_this_iteration = True
                             debug_info.append(f"Successfully removed session {deleted_count}")
+                            log_info(f"Successfully removed session {deleted_count} (from {session['created_date_text']})")
                             break  # Remove one at a time
                             
                         except Exception as e:
                             debug_info.append(f"Error clicking remove button: {e}")
+                            log_info(f"Error clicking remove button for session {session['created_date_text']}: {e}")
                             continue
                 
                 if not removed_this_iteration:
@@ -676,9 +734,12 @@ def api_delete_old_sessions():
         if total_iterations >= max_iterations:
             debug_info.append(f"Reached maximum iterations ({max_iterations})")
         
+        final_message = f'Successfully removed {deleted_count} old sessions'
+        log_info(f"Delete Old Sessions completed: {final_message} in {total_iterations} iterations")
+        
         return jsonify({
             'success': True,
-            'message': f'Successfully removed {deleted_count} old sessions',
+            'message': final_message,
             'deleted_count': deleted_count,
             'iterations': total_iterations,
             'debug_info': debug_info
