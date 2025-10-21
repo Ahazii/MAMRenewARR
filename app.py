@@ -4,6 +4,7 @@ import os
 import subprocess
 import re
 import requests
+import time
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -257,7 +258,6 @@ def api_login_mam():
         debug_info.append(f"Cookies after main page: {', '.join(initial_cookies) if initial_cookies else 'None'}")
         
         # Add a small delay to appear more human-like
-        import time
         time.sleep(1)
         
         # Now get the login page to check if we need to login
