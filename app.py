@@ -240,6 +240,18 @@ def api_login_mam():
         initial_cookies = [cookie.name for cookie in session.cookies]
         debug_info.append(f"Cookies after main page: {', '.join(initial_cookies) if initial_cookies else 'None'}")
         
+        # Visit some static resources to make the session look more real
+        time.sleep(0.5)
+        try:
+            # Try to visit a CSS or JS file to establish more realistic browsing pattern
+            css_response = session.get(f"{main_url}/static/css/style.css", timeout=5)
+            debug_info.append(f"CSS request status: {css_response.status_code}")
+        except:
+            debug_info.append("CSS request failed (expected)")
+            
+        # Additional small delay
+        time.sleep(0.5)
+        
         # Check cookies after main page visit
         initial_cookies = [cookie.name for cookie in session.cookies]
         debug_info.append(f"Cookies after main page: {', '.join(initial_cookies) if initial_cookies else 'None'}")
@@ -419,6 +431,13 @@ def api_login_mam():
             login_data[username_field] = username
             login_data[password_field] = password
             debug_info.append(f"Using fields: {username_field}, {password_field}")
+            
+            # Add remember me checkbox if present (helps with cookie persistence)
+            for inp in all_inputs:
+                if inp.get('name') and 'remember' in inp.get('name', '').lower():
+                    login_data[inp['name']] = 'on'  # Checkbox value
+                    debug_info.append(f"Added remember me field: {inp['name']}")
+                    break
         else:
             debug_info.append("Could not identify username/password fields")
             return jsonify({
@@ -427,11 +446,20 @@ def api_login_mam():
                 'debug_info': debug_info
             })
         
-        # Add any hidden form fields
+        # Add any hidden form fields and submit button
         for inp in all_inputs:
             if inp.get('type') == 'hidden' and inp.get('name') and inp.get('value'):
                 login_data[inp['name']] = inp['value']
                 debug_info.append(f"Added hidden field: {inp['name']}")
+            elif inp.get('type') == 'submit' and inp.get('value'):
+                # Some sites require the submit button value
+                if inp.get('name'):
+                    login_data[inp['name']] = inp['value']
+                    debug_info.append(f"Added submit field: {inp['name']} = {inp['value']}")
+                else:
+                    # For unnamed submit buttons, sometimes we need to add a generic submit field
+                    login_data['submit'] = inp['value']
+                    debug_info.append(f"Added unnamed submit: {inp['value']}")
         
         # Submit login form using the form_action we determined earlier
         if not form_action.startswith('http'):
@@ -449,15 +477,19 @@ def api_login_mam():
         # Add another small delay
         time.sleep(1)
         
-        # Set proper headers for form submission
+        # Set proper headers for form submission with JavaScript simulation
         form_headers = {
             'Referer': login_url,
             'Origin': mam_url.rstrip('/'),
             'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest',  # Sometimes helps with JavaScript detection
             'Sec-Fetch-Dest': 'document',
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'same-origin',
-            'Sec-Fetch-User': '?1'
+            'Sec-Fetch-User': '?1',
+            'Sec-CH-UA': '"Chromium";v="120", "Not_A Brand";v="8", "Google Chrome";v="120"',
+            'Sec-CH-UA-Mobile': '?0',
+            'Sec-CH-UA-Platform': '"Windows"'
         }
         
         login_response = session.post(form_action, data=login_data, headers=form_headers, timeout=10, allow_redirects=True)
