@@ -42,10 +42,13 @@
 <div class="box">
   <h3>Step 3</h3>
   <div class="button-row">
-    <button title="Open a console window on the Qbittorrent docker">Log into qBittorrent</button>
-    <button title="Send the cookie to qbittorrent in a command and check success">Send Cookie to qBittorrent</button>
-    <button title="Logout of qBittorrent">Logout qBittorrent</button>
+    <button id="qbittorrent-login-btn" title="Open a console window on the Qbittorrent docker">Log into qBittorrent</button>
+    <button id="qbittorrent-send-cookie-btn" title="Send the cookie to qbittorrent in a command and check success">Send Cookie to qBittorrent</button>
+    <button id="qbittorrent-logout-btn" title="Logout of qBittorrent">Logout qBittorrent</button>
   </div>
+  <div id="qbittorrent-result" style="margin-top:1em;font-weight:600;"></div>
+  <div id="qbittorrent-debug" style="margin-top:0.5em;font-size:0.8em;color:#666;background:#f5f5f5;padding:0.5em;border-radius:4px;white-space:pre-line;max-height:200px;overflow-y:auto;display:none;"></div>
+  <button id="toggle-qbittorrent-debug" style="margin-top:0.5em;display:none;" title="Show/Hide qBittorrent debug information">Show Debug</button>
 </div>
 <div class="box">
   <h3>Step 4</h3>
@@ -72,6 +75,12 @@ document.addEventListener('DOMContentLoaded', function() {
   const createProwlarrSessionBtn = document.getElementById('create-prowlarr-session-btn');
   const logoutMamBtn = document.getElementById('logout-mam-btn');
   const clearCookiesBtn = document.getElementById('clear-cookies-btn');
+  const qbittorrentLoginBtn = document.getElementById('qbittorrent-login-btn');
+  const qbittorrentSendCookieBtn = document.getElementById('qbittorrent-send-cookie-btn');
+  const qbittorrentLogoutBtn = document.getElementById('qbittorrent-logout-btn');
+  const qbittorrentResultDiv = document.getElementById('qbittorrent-result');
+  const qbittorrentDebugDiv = document.getElementById('qbittorrent-debug');
+  const toggleQbittorrentDebugBtn = document.getElementById('toggle-qbittorrent-debug');
   const qbittorrentCookieDisplay = document.getElementById('qbittorrent-cookie-display');
   const prowlarrCookieDisplay = document.getElementById('prowlarr-cookie-display');
   const qbittorrentCookieLabel = document.getElementById('qbittorrent-cookie-label');
@@ -460,6 +469,130 @@ document.addEventListener('DOMContentLoaded', function() {
       }).catch(error => {
         clearCookiesBtn.disabled = false;
         mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+      });
+    });
+  }
+  
+  // qBittorrent debug toggle functionality
+  if (toggleQbittorrentDebugBtn) {
+    toggleQbittorrentDebugBtn.addEventListener('click', function() {
+      if (qbittorrentDebugDiv.style.display === 'none') {
+        qbittorrentDebugDiv.style.display = 'block';
+        toggleQbittorrentDebugBtn.textContent = 'Hide Debug';
+      } else {
+        qbittorrentDebugDiv.style.display = 'none';
+        toggleQbittorrentDebugBtn.textContent = 'Show Debug';
+      }
+    });
+  }
+  
+  // qBittorrent Login button functionality
+  if (qbittorrentLoginBtn) {
+    qbittorrentLoginBtn.addEventListener('click', function() {
+      qbittorrentResultDiv.textContent = 'Connecting to qBittorrent container...';
+      qbittorrentResultDiv.style.color = '#666';
+      qbittorrentLoginBtn.disabled = true;
+      qbittorrentDebugDiv.style.display = 'none';
+      toggleQbittorrentDebugBtn.style.display = 'none';
+      
+      fetch('/api/qbittorrent_login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(r => r.json()).then(data => {
+        qbittorrentLoginBtn.disabled = false;
+        
+        if (data.success) {
+          qbittorrentResultDiv.innerHTML = `<span style='color:#007700'>✓ ${data.message}</span>`;
+        } else {
+          qbittorrentResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+        }
+        
+        // Show debug information if available
+        if (data.debug_info && data.debug_info.length > 0) {
+          qbittorrentDebugDiv.textContent = data.debug_info.join('\n');
+          toggleQbittorrentDebugBtn.style.display = 'inline-block';
+          toggleQbittorrentDebugBtn.textContent = 'Show Debug';
+        }
+      }).catch(error => {
+        qbittorrentLoginBtn.disabled = false;
+        qbittorrentResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+      });
+    });
+  }
+  
+  // qBittorrent Send Cookie button functionality
+  if (qbittorrentSendCookieBtn) {
+    qbittorrentSendCookieBtn.addEventListener('click', function() {
+      qbittorrentResultDiv.textContent = 'Sending qBittorrent cookie to MAM...';
+      qbittorrentResultDiv.style.color = '#666';
+      qbittorrentSendCookieBtn.disabled = true;
+      qbittorrentDebugDiv.style.display = 'none';
+      toggleQbittorrentDebugBtn.style.display = 'none';
+      
+      fetch('/api/qbittorrent_send_cookie', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(r => r.json()).then(data => {
+        qbittorrentSendCookieBtn.disabled = false;
+        
+        if (data.success) {
+          qbittorrentResultDiv.innerHTML = `<span style='color:#007700'>✓ ${data.message}</span>`;
+          if (data.response) {
+            // Show a truncated version of the response
+            let responsePreview = data.response.length > 100 ? 
+              data.response.substring(0, 100) + '...' : data.response;
+            qbittorrentResultDiv.innerHTML += `<br><small>Response: ${responsePreview}</small>`;
+          }
+        } else {
+          qbittorrentResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+          if (data.response) {
+            qbittorrentResultDiv.innerHTML += `<br><small>Response: ${data.response}</small>`;
+          }
+        }
+        
+        // Show debug information if available
+        if (data.debug_info && data.debug_info.length > 0) {
+          qbittorrentDebugDiv.textContent = data.debug_info.join('\n');
+          toggleQbittorrentDebugBtn.style.display = 'inline-block';
+          toggleQbittorrentDebugBtn.textContent = 'Show Debug';
+        }
+      }).catch(error => {
+        qbittorrentSendCookieBtn.disabled = false;
+        qbittorrentResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+      });
+    });
+  }
+  
+  // qBittorrent Logout button functionality
+  if (qbittorrentLogoutBtn) {
+    qbittorrentLogoutBtn.addEventListener('click', function() {
+      qbittorrentResultDiv.textContent = 'Disconnecting from qBittorrent container...';
+      qbittorrentResultDiv.style.color = '#666';
+      qbittorrentLogoutBtn.disabled = true;
+      qbittorrentDebugDiv.style.display = 'none';
+      toggleQbittorrentDebugBtn.style.display = 'none';
+      
+      fetch('/api/qbittorrent_logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(r => r.json()).then(data => {
+        qbittorrentLogoutBtn.disabled = false;
+        
+        if (data.success) {
+          qbittorrentResultDiv.innerHTML = `<span style='color:#007700'>✓ ${data.message}</span>`;
+        } else {
+          qbittorrentResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+        }
+        
+        // Show debug information if available
+        if (data.debug_info && data.debug_info.length > 0) {
+          qbittorrentDebugDiv.textContent = data.debug_info.join('\n');
+          toggleQbittorrentDebugBtn.style.display = 'inline-block';
+          toggleQbittorrentDebugBtn.textContent = 'Show Debug';
+        }
+      }).catch(error => {
+        qbittorrentLogoutBtn.disabled = false;
+        qbittorrentResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
       });
     });
   }

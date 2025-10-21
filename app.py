@@ -1324,5 +1324,267 @@ def api_create_prowlarr_cookie():
             'debug_info': [str(e)]
         })
 
+# Global variable to track qBittorrent container connection state
+qbittorrent_container_connected = False
+
+@app.route('/api/qbittorrent_login', methods=['POST'])
+def api_qbittorrent_login():
+    """Connect to qBittorrent container console"""
+    log_info("qBittorrent Login request started")
+    debug_info = []
+    
+    try:
+        import subprocess
+        global qbittorrent_container_connected
+        
+        debug_info.append("Attempting to connect to binhex-qbittorrentvpn container")
+        
+        # Test if container exists and is running
+        try:
+            result = subprocess.run(
+                ['docker', 'ps', '--filter', 'name=binhex-qbittorrentvpn', '--format', '{{.Names}}']
+                , capture_output=True, text=True, timeout=10
+            )
+            
+            if result.returncode != 0:
+                debug_info.append(f"Docker ps command failed: {result.stderr}")
+                log_info(f"Docker ps command failed: {result.stderr}")
+                return jsonify({
+                    'success': False,
+                    'message': 'Failed to check Docker container status',
+                    'debug_info': debug_info
+                })
+            
+            container_list = result.stdout.strip().split('\n')
+            debug_info.append(f"Found containers: {container_list}")
+            
+            if not any('binhex-qbittorrentvpn' in name for name in container_list if name):
+                debug_info.append("binhex-qbittorrentvpn container not found or not running")
+                log_info("binhex-qbittorrentvpn container not found or not running")
+                return jsonify({
+                    'success': False,
+                    'message': 'binhex-qbittorrentvpn container not found or not running',
+                    'debug_info': debug_info
+                })
+                
+        except subprocess.TimeoutExpired:
+            debug_info.append("Docker command timed out")
+            return jsonify({
+                'success': False,
+                'message': 'Docker command timed out',
+                'debug_info': debug_info
+            })
+        except Exception as e:
+            debug_info.append(f"Error checking container status: {str(e)}")
+            return jsonify({
+                'success': False,
+                'message': f'Error checking container status: {str(e)}',
+                'debug_info': debug_info
+            })
+        
+        # Test basic command execution in container
+        try:
+            test_result = subprocess.run(
+                ['docker', 'exec', 'binhex-qbittorrentvpn', 'echo', 'test-connection'],
+                capture_output=True, text=True, timeout=15
+            )
+            
+            if test_result.returncode == 0:
+                qbittorrent_container_connected = True
+                debug_info.append("Successfully connected to container")
+                debug_info.append(f"Test command output: {test_result.stdout.strip()}")
+                log_info("Successfully connected to binhex-qbittorrentvpn container")
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Successfully connected to qBittorrent container console',
+                    'debug_info': debug_info
+                })
+            else:
+                debug_info.append(f"Test command failed: {test_result.stderr}")
+                log_info(f"Container connection test failed: {test_result.stderr}")
+                return jsonify({
+                    'success': False,
+                    'message': f'Container connection test failed: {test_result.stderr}',
+                    'debug_info': debug_info
+                })
+                
+        except subprocess.TimeoutExpired:
+            debug_info.append("Container connection test timed out")
+            return jsonify({
+                'success': False,
+                'message': 'Container connection test timed out',
+                'debug_info': debug_info
+            })
+            
+    except Exception as e:
+        debug_info.append(f"Unexpected error: {str(e)}")
+        log_info(f"qBittorrent login error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Connection error: {str(e)}',
+            'debug_info': debug_info
+        })
+
+@app.route('/api/qbittorrent_send_cookie', methods=['POST'])
+def api_qbittorrent_send_cookie():
+    """Send qBittorrent cookie to container using curl command"""
+    log_info("qBittorrent Send Cookie request started")
+    debug_info = []
+    
+    try:
+        import subprocess
+        global qbittorrent_container_connected
+        
+        # Check if we have a connection
+        if not qbittorrent_container_connected:
+            debug_info.append("No active container connection - please login first")
+            return jsonify({
+                'success': False,
+                'message': 'No active container connection. Please click "Log into qBittorrent" first.',
+                'debug_info': debug_info
+            })
+        
+        # Get qBittorrent cookie from settings
+        settings = load_settings()
+        qb_cookie = settings.get('qbittorrent_session_cookie')
+        
+        if not qb_cookie or qb_cookie == '0':
+            debug_info.append("No qBittorrent cookie found or cookie is cleared")
+            log_info("No qBittorrent cookie found - user needs to create one in Step 2")
+            return jsonify({
+                'success': False,
+                'message': 'No qBittorrent cookie found. Please create a qBittorrent session in Step 2 first.',
+                'debug_info': debug_info
+            })
+        
+        debug_info.append(f"Using qBittorrent cookie (length: {len(qb_cookie)} chars)")
+        debug_info.append(f"Cookie preview: {qb_cookie[:50]}...")
+        log_debug(f"Executing curl command with cookie in binhex-qbittorrentvpn container")
+        
+        # Build the curl command
+        curl_command = [
+            'docker', 'exec', 'binhex-qbittorrentvpn',
+            'sudo', 'curl', '-c', '/path/docker/persists/mam.cookies',
+            '-b', f'mam_id={qb_cookie}',
+            'https://t.myanonamouse.net/json/dynamicSeedbox.php'
+        ]
+        
+        debug_info.append("Executing curl command in container...")
+        debug_info.append(f"Command: {' '.join(curl_command[:8])}... [cookie hidden]")
+        log_info("Executing MAM dynamic seedbox curl command in qBittorrent container")
+        
+        try:
+            result = subprocess.run(
+                curl_command,
+                capture_output=True, text=True, timeout=30
+            )
+            
+            debug_info.append(f"Command exit code: {result.returncode}")
+            debug_info.append(f"Command stdout: {result.stdout}")
+            if result.stderr:
+                debug_info.append(f"Command stderr: {result.stderr}")
+            
+            log_debug(f"Curl command completed with exit code: {result.returncode}")
+            log_debug(f"Curl response: {result.stdout}")
+            
+            if result.returncode == 0:
+                # Parse the response to check for success
+                response_text = result.stdout.strip()
+                debug_info.append(f"Full response: {response_text}")
+                
+                # Look for the success indicator
+                if '{"Success":true' in response_text:
+                    debug_info.append("SUCCESS: Found '{"Success":true' in response")
+                    log_info("✓ Successfully secured qBittorrent session with MAM")
+                    
+                    # Extract just the JSON part if there's extra output
+                    json_start = response_text.find('{')
+                    if json_start != -1:
+                        json_part = response_text[json_start:]
+                        # Find the end of JSON (before any shell prompt)
+                        json_end = json_part.find('}') + 1
+                        if json_end > 0:
+                            clean_json = json_part[:json_end]
+                            debug_info.append(f"Extracted JSON: {clean_json}")
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': 'Successfully secured qBittorrent session with MAM',
+                        'response': response_text,
+                        'debug_info': debug_info
+                    })
+                else:
+                    debug_info.append("FAILURE: Did not find '{"Success":true' in response")
+                    log_info(f"qBittorrent session setup failed - unexpected response: {response_text}")
+                    return jsonify({
+                        'success': False,
+                        'message': 'Session setup failed - unexpected response from MAM',
+                        'response': response_text,
+                        'debug_info': debug_info
+                    })
+            else:
+                debug_info.append(f"Curl command failed with exit code: {result.returncode}")
+                log_info(f"Curl command failed: {result.stderr}")
+                return jsonify({
+                    'success': False,
+                    'message': f'Curl command failed: {result.stderr}',
+                    'debug_info': debug_info
+                })
+                
+        except subprocess.TimeoutExpired:
+            debug_info.append("Curl command timed out after 30 seconds")
+            log_info("Curl command timed out")
+            return jsonify({
+                'success': False,
+                'message': 'Curl command timed out after 30 seconds',
+                'debug_info': debug_info
+            })
+            
+    except Exception as e:
+        debug_info.append(f"Unexpected error: {str(e)}")
+        log_info(f"qBittorrent send cookie error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Send cookie error: {str(e)}',
+            'debug_info': debug_info
+        })
+
+@app.route('/api/qbittorrent_logout', methods=['POST'])
+def api_qbittorrent_logout():
+    """Disconnect from qBittorrent container console"""
+    log_info("qBittorrent Logout request started")
+    debug_info = []
+    
+    try:
+        global qbittorrent_container_connected
+        
+        if qbittorrent_container_connected:
+            qbittorrent_container_connected = False
+            debug_info.append("Disconnected from container console")
+            log_info("Disconnected from binhex-qbittorrentvpn container console")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Successfully logged out from qBittorrent container console',
+                'debug_info': debug_info
+            })
+        else:
+            debug_info.append("No active container connection to close")
+            return jsonify({
+                'success': True,
+                'message': 'No active container connection to close',
+                'debug_info': debug_info
+            })
+            
+    except Exception as e:
+        debug_info.append(f"Error during logout: {str(e)}")
+        log_info(f"qBittorrent logout error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Logout error: {str(e)}',
+            'debug_info': debug_info
+        })
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
