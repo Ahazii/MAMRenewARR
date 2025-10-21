@@ -149,37 +149,32 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
-  // View MAM Page button functionality - opens in new browser window
+  // View MAM Page button functionality - opens popup showing current global browser state
   if (viewMamPageBtn) {
     viewMamPageBtn.addEventListener('click', function() {
-      mamResultDiv.textContent = 'Opening MAM page...';
+      mamResultDiv.textContent = 'Getting current browser state...';
       mamResultDiv.style.color = '#666';
       
-      // First use Selenium to view the page status
+      // Get current state of global browser
       fetch('/api/view_mam_page')
         .then(r => r.json())
         .then(data => {
           if (data.success) {
             // Show status information
             let statusMsg = data.logged_in ? 'Logged in' : 'Not logged in';
-            mamResultDiv.innerHTML = `<span style='color:#007700'>✓ ${statusMsg} - Opening in new window</span>`;
+            mamResultDiv.innerHTML = `<span style='color:#007700'>✓ ${statusMsg} - Opening current page in new window</span>`;
             
-            // Get MAM URL from config or use the URL from the response
-            return fetch('/api/settings');
+            // Open the CURRENT URL of the global browser in a new window
+            const currentUrl = data.url || 'https://www.myanonamouse.net/';
+            const newWindow = window.open(currentUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+            
+            if (newWindow) {
+              mamResultDiv.innerHTML += `<br><small>Opened: ${data.title || currentUrl}</small>`;
+            } else {
+              mamResultDiv.innerHTML += `<br><span style='color:#bb0000'>⚠ Popup blocked - please allow popups for this site</span>`;
+            }
           } else {
-            mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Error checking MAM status: ${data.error}</span>`;
-            throw new Error('Cannot check MAM status');
-          }
-        })
-        .then(r => r.json())
-        .then(settings => {
-          const mamUrl = settings.mam_url || 'https://www.myanonamouse.net/';
-          
-          // Open MAM in a new window/tab
-          const newWindow = window.open(mamUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-          
-          if (!newWindow) {
-            mamResultDiv.innerHTML += `<br><span style='color:#bb0000'>⚠ Popup blocked - please allow popups for this site</span>`;
+            mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Error: ${data.error}</span>`;
           }
         })
         .catch(error => {

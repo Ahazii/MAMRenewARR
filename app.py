@@ -394,7 +394,7 @@ def api_login_mam():
 
 @app.route('/api/view_mam_page', methods=['GET'])
 def api_view_mam_page():
-    """View MAM page using global Selenium driver"""
+    """Return current state of global Selenium driver (for popup window)"""
     settings = load_settings()
     mam_url = settings.get('mam_url', 'https://www.myanonamouse.net/')
     debug_info = []
@@ -410,38 +410,14 @@ def api_view_mam_page():
             
         debug_info.append("Using global browser instance")
         
-        # Ensure we're logged into MAM
-        try:
-            ensure_mam_login(driver, settings)
-            debug_info.append("Login ensured")
-        except Exception as e:
-            debug_info.append(f"Login failed: {str(e)}")
-            return jsonify({
-                'success': False,
-                'error': f'Login failed: {str(e)}',
-                'debug_info': debug_info
-            })
-        
-        # Get the requested page URL
-        page_url = request.args.get('url', mam_url)
-        if not page_url.startswith('http'):
-            page_url = mam_url.rstrip('/') + '/' + page_url.lstrip('/')
-            
-        debug_info.append(f"Navigating to: {page_url}")
-        driver.get(page_url)
-        
-        # Wait for page to load
-        time.sleep(3)
-        
-        # Get page info
+        # Don't navigate, just get current state
         current_url = driver.current_url
         page_title = driver.title
-        page_source = driver.page_source
         
-        debug_info.append(f"Page loaded. Title: {page_title}")
-        debug_info.append(f"Current URL: {current_url}")
+        debug_info.append(f"Current browser URL: {current_url}")
+        debug_info.append(f"Current browser title: {page_title}")
         
-        # Check if we're logged in based on URL and content
+        # Check if we're logged in based on URL
         logged_in = 'login.php' not in current_url
         if logged_in:
             debug_info.append("User appears to be logged in")
@@ -450,10 +426,8 @@ def api_view_mam_page():
         
         return jsonify({
             'success': True,
-            'url': current_url,
+            'url': current_url,  # Return actual current URL of global browser
             'title': page_title,
-            'content': page_source[:5000],  # First 5000 chars for inspection
-            'content_length': len(page_source),
             'logged_in': logged_in,
             'debug_info': debug_info
         })
@@ -474,7 +448,7 @@ def api_view_mam_page():
 
 @app.route('/api/view_sessions', methods=['POST'])
 def api_view_sessions():
-    """View MAM security/sessions page using global browser"""
+    """Navigate global browser to MAM security/sessions page"""
     settings = load_settings()
     security_page_url = settings.get('security_page', 'https://www.myanonamouse.net/preferences/index.php?view=security')
     debug_info = []
@@ -503,52 +477,40 @@ def api_view_sessions():
             })
         
         # Navigate to security page
-        debug_info.append(f"Navigating to security page: {security_page_url}")
+        debug_info.append(f"Navigating global browser to security page: {security_page_url}")
         driver.get(security_page_url)
         time.sleep(3)
         
-        # Parse sessions table
+        # Verify we're on the right page
+        current_url = driver.current_url
+        page_title = driver.title
+        debug_info.append(f"Navigated to: {current_url}")
+        debug_info.append(f"Page title: {page_title}")
+        
+        # Quick check for sessions table to confirm we're on the right page
         from selenium.webdriver.common.by import By
         from selenium.common.exceptions import NoSuchElementException
         
         try:
-            # Find the sessions table
             table = driver.find_element(By.CLASS_NAME, "sessions")
             rows = table.find_elements(By.TAG_NAME, "tr")
-            
             session_count = len(rows) - 1  # Subtract header row
-            debug_info.append(f"Found {session_count} sessions")
-            
-            # Get basic session info
-            sessions_info = []
-            for i, row in enumerate(rows[1:]):  # Skip header
-                cells = row.find_elements(By.TAG_NAME, "td")
-                if len(cells) >= 6:
-                    created_date = cells[0].text.strip()
-                    created_ip = cells[1].text.strip()
-                    browser = cells[2].text.strip()
-                    sessions_info.append({
-                        'index': i,
-                        'created_date': created_date,
-                        'created_ip': created_ip,
-                        'browser': browser
-                    })
-            
-            debug_info.append(f"Parsed {len(sessions_info)} session details")
+            debug_info.append(f"Found sessions table with {session_count} sessions")
             
             return jsonify({
                 'success': True,
-                'message': f'Found {session_count} sessions',
+                'message': f'Successfully navigated to security page - found {session_count} sessions',
+                'current_url': current_url,
                 'session_count': session_count,
-                'sessions': sessions_info[:5],  # Return first 5 for preview
                 'debug_info': debug_info
             })
             
         except NoSuchElementException:
-            debug_info.append("Sessions table not found")
+            debug_info.append("Sessions table not found on page")
             return jsonify({
-                'success': False,
-                'message': 'Sessions table not found on page',
+                'success': True,  # Still successful navigation
+                'message': 'Navigated to security page (sessions table not found)',
+                'current_url': current_url,
                 'debug_info': debug_info
             })
             
@@ -620,33 +582,56 @@ def api_delete_old_sessions():
                 
                 # Parse sessions with dates
                 sessions = []
+                debug_info.append(f"Processing {len(rows)-1} session rows (excluding header)")
+                
                 for i, row in enumerate(rows[1:]):  # Skip header
                     cells = row.find_elements(By.TAG_NAME, "td")
+                    debug_info.append(f"Row {i+1}: Found {len(cells)} cells")
+                    
                     if len(cells) >= 6:
                         created_date_text = cells[0].text.strip()
+                        debug_info.append(f"Row {i+1}: Created date text: '{created_date_text}'")
                         
                         try:
                             # Parse date in format: "2025-10-21 09:17:50"
                             created_date = datetime.strptime(created_date_text, "%Y-%m-%d %H:%M:%S")
+                            debug_info.append(f"Row {i+1}: Successfully parsed date: {created_date}")
                             
                             # Look for Remove Session button in last column
                             remove_button = None
-                            try:
-                                remove_button = cells[-1].find_element(By.CSS_SELECTOR, 'input[data-secact="rs"]')
-                            except NoSuchElementException:
-                                pass
+                            last_cell = cells[-1]
+                            debug_info.append(f"Row {i+1}: Last cell HTML: {last_cell.get_attribute('outerHTML')[:200]}...")
+                            
+                            # Try multiple selectors for the remove button
+                            selectors = [
+                                'input[data-secact="rs"]',
+                                'input[value="Remove Session"]',
+                                '*[data-secact="rs"]'
+                            ]
+                            
+                            for selector in selectors:
+                                try:
+                                    remove_button = last_cell.find_element(By.CSS_SELECTOR, selector)
+                                    debug_info.append(f"Row {i+1}: Found remove button with selector '{selector}'")
+                                    break
+                                except NoSuchElementException:
+                                    debug_info.append(f"Row {i+1}: No button found with selector '{selector}'")
+                                    continue
                             
                             sessions.append({
                                 'row_index': i,
                                 'created_date': created_date,
                                 'created_date_text': created_date_text,
                                 'remove_button': remove_button,
+                                'has_remove_button': remove_button is not None,
                                 'row': row
                             })
                             
                         except ValueError as e:
-                            debug_info.append(f"Could not parse date '{created_date_text}': {e}")
+                            debug_info.append(f"Row {i+1}: Could not parse date '{created_date_text}': {e}")
                             continue
+                    else:
+                        debug_info.append(f"Row {i+1}: Insufficient cells ({len(cells)} < 6), skipping")
                 
                 if len(sessions) <= 1:
                     debug_info.append("Only one valid session found - stopping")
