@@ -800,7 +800,7 @@ def api_delete_old_sessions():
                                 try:
                                     # Look for common modal/dialog selectors
                                     modal_selectors = [
-                                        ".modal", "[role='dialog']", ".dialog", ".popup", 
+                                        ".modal", "[role=dialog]", ".dialog", ".popup", 
                                         "#confirm-dialog", ".confirm-popup", ".swal2-container"
                                     ]
                                     
@@ -848,10 +848,6 @@ def api_delete_old_sessions():
                                     debug_info.append(f"No confirmation dialog found after {max_wait_attempts} attempts")
                                     log_info(f"No confirmation dialog appeared after {max_wait_attempts} attempts")
                             
-                            if not confirmation_handled:
-                                debug_info.append("WARNING: No confirmation dialog was handled - session likely not removed")
-                                log_info("WARNING: Expected confirmation dialog not found - session removal may have failed")
-                            
                             # Check if URL changed or page reloaded
                             post_click_url = driver.current_url
                             debug_info.append(f"Post-click URL: {post_click_url}")
@@ -875,10 +871,23 @@ def api_delete_old_sessions():
                                 button_still_exists = False
                                 debug_info.append("Remove button no longer exists after click")
                             
-                            deleted_count += 1
-                            removed_this_iteration = True
-                            debug_info.append(f"Completed removal attempt {deleted_count} for session {session['created_date_text']}")
-                            log_info(f"Completed removal attempt {deleted_count} (from {session['created_date_text']}) - button_exists_after: {button_still_exists}")
+                            # Only count as successful deletion if we handled confirmation dialog OR button disappeared
+                            session_actually_removed = confirmation_handled or not button_still_exists
+                            
+                            if session_actually_removed:
+                                deleted_count += 1
+                                debug_info.append(f"✓ Successfully removed session {session['created_date_text']}")
+                                log_info(f"✓ Successfully removed session from {session['created_date_text']} - confirmation_handled: {confirmation_handled}, button_gone: {not button_still_exists}")
+                            else:
+                                debug_info.append(f"✗ Failed to remove session {session['created_date_text']} - no confirmation dialog handled and button still exists")
+                                log_info(f"✗ Failed to remove session from {session['created_date_text']} - no confirmation dialog handled and button still exists")
+                            
+                            if not confirmation_handled:
+                                debug_info.append("WARNING: No confirmation dialog was handled - session likely not removed")
+                                log_info("WARNING: Expected confirmation dialog not found - session removal may have failed")
+                            
+                            removed_this_iteration = session_actually_removed  # Only mark as removed if actually successful
+                            debug_info.append(f"Completed removal attempt for session {session['created_date_text']} - actual_success: {session_actually_removed}")
                             break  # Remove one at a time
                             
                         except Exception as e:
