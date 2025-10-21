@@ -800,7 +800,7 @@ def api_delete_old_sessions():
                                 try:
                                     # Look for common modal/dialog selectors
                                     modal_selectors = [
-                                        ".modal", "[role=\"dialog\"]", ".dialog", ".popup", 
+                                        ".modal", "[role='dialog']", ".dialog", ".popup", 
                                         "#confirm-dialog", ".confirm-popup", ".swal2-container"
                                     ]
                                     
@@ -812,7 +812,17 @@ def api_delete_old_sessions():
                                                 
                                                 # Look for OK/Confirm button in modal
                                                 ok_buttons = modal.find_elements(By.CSS_SELECTOR, 
-                                                    "button:contains('OK'), button:contains('Confirm'), button:contains('Yes'), input[value*='OK'], input[value*='Confirm']")
+                                                    "button, input[type='button'], input[type='submit']")
+                                                
+                                                # Filter buttons by text content
+                                                confirm_buttons = []
+                                                for btn in ok_buttons:
+                                                    btn_text = btn.text.upper() if btn.text else ''
+                                                    btn_value = (btn.get_attribute('value') or '').upper()
+                                                    if any(keyword in btn_text or keyword in btn_value for keyword in ['OK', 'CONFIRM', 'YES']):
+                                                        confirm_buttons.append(btn)
+                                                
+                                                ok_buttons = confirm_buttons
                                                 
                                                 if ok_buttons:
                                                     ok_buttons[0].click()
