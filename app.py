@@ -1495,7 +1495,7 @@ def api_qbittorrent_send_cookie():
                 
                 # Look for the success indicator
                 if '{"Success":true' in response_text:
-                    debug_info.append("SUCCESS: Found '{"Success":true' in response")
+                    debug_info.append('SUCCESS: Found {"Success":true in response')
                     log_info("✓ Successfully secured qBittorrent session with MAM")
                     
                     # Extract just the JSON part if there's extra output
@@ -1515,7 +1515,7 @@ def api_qbittorrent_send_cookie():
                         'debug_info': debug_info
                     })
                 else:
-                    debug_info.append("FAILURE: Did not find '{"Success":true' in response")
+                    debug_info.append('FAILURE: Did not find {"Success":true in response')
                     log_info(f"qBittorrent session setup failed - unexpected response: {response_text}")
                     return jsonify({
                         'success': False,
