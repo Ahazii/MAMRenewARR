@@ -1181,6 +1181,75 @@ def create_session_cookie(cookie_type, ip_address, use_asn, allow_dynamic_seedbo
         debug_info.append(f"Error: {str(e)}")
         return {'success': False, 'message': f'Session creation error: {str(e)}', 'debug_info': debug_info}
 
+@app.route('/api/logout_mam', methods=['POST'])
+def api_logout_mam():
+    """Logout from MAM by closing the browser session"""
+    log_info("MAM Logout request started")
+    
+    try:
+        global global_driver
+        
+        if global_driver:
+            try:
+                # Close the browser
+                global_driver.quit()
+                log_info("Browser session closed successfully")
+                return jsonify({
+                    'success': True,
+                    'message': 'Successfully logged out from MAM (browser closed)'
+                })
+            except Exception as e:
+                log_info(f"Error closing browser: {e}")
+                return jsonify({
+                    'success': False,
+                    'message': f'Error closing browser: {str(e)}'
+                })
+            finally:
+                global_driver = None
+        else:
+            return jsonify({
+                'success': True,
+                'message': 'No active browser session to close'
+            })
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Logout error: {str(e)}'
+        })
+
+@app.route('/api/clear_cookies', methods=['POST'])
+def api_clear_cookies():
+    """Clear stored session cookies by setting them to '0' with current timestamp"""
+    log_info("Clear Cookies request started")
+    
+    try:
+        from datetime import datetime
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        settings = load_settings()
+        
+        # Set both cookies to '0' and update timestamps
+        settings['qbittorrent_session_cookie'] = '0'
+        settings['qbittorrent_cookie_obtained_time'] = current_time
+        settings['prowlarr_session_cookie'] = '0'
+        settings['prowlarr_cookie_obtained_time'] = current_time
+        
+        save_settings(settings)
+        log_info(f"Cleared both session cookies and set timestamps to: {current_time}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Successfully cleared both session cookies',
+            'timestamp': current_time
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error clearing cookies: {str(e)}'
+        })
+
 @app.route('/api/create_qbittorrent_cookie', methods=['POST'])
 def api_create_qbittorrent_cookie():
     """Create qBittorrent session cookie"""
