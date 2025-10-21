@@ -208,362 +208,7 @@ def api_get_ips():
 
 @app.route('/api/login_mam', methods=['POST'])
 def api_login_mam():
-    """Login to MyAnonamouse using stored credentials"""
-    settings = load_settings()
-    debug_info = []
-    
-    # Get credentials from settings
-    mam_url = settings.get('mam_url', 'https://www.myanonamouse.net/')
-    username = settings.get('mam_username', '')
-    password = settings.get('mam_password', '')
-    
-    debug_info.append(f"MAM URL: {mam_url}")
-    debug_info.append(f"Username provided: {'Yes' if username else 'No'}")
-    debug_info.append(f"Password provided: {'Yes' if password else 'No'}")
-    
-    if not username or not password:
-        return jsonify({
-            'success': False, 
-            'message': 'MAM username or password not configured. Please check your settings.',
-            'debug_info': debug_info
-        })
-    
-    try:
-        session = get_mam_session()
-        
-        # First, visit the main page to establish cookies like a real browser would
-        main_url = mam_url.rstrip('/')
-        debug_info.append(f"Visiting main page first: {main_url}")
-        main_response = session.get(main_url, timeout=10)
-        debug_info.append(f"Main page status: {main_response.status_code}")
-        
-        # Check cookies after main page visit
-        initial_cookies = [cookie.name for cookie in session.cookies]
-        debug_info.append(f"Cookies after main page: {', '.join(initial_cookies) if initial_cookies else 'None'}")
-        
-        # Visit some static resources to make the session look more real
-        time.sleep(0.5)
-        try:
-            # Try to visit a CSS or JS file to establish more realistic browsing pattern
-            css_response = session.get(f"{main_url}/static/css/style.css", timeout=5)
-            debug_info.append(f"CSS request status: {css_response.status_code}")
-        except:
-            debug_info.append("CSS request failed (expected)")
-            
-        # Additional small delay
-        time.sleep(0.5)
-        
-        # Check cookies after main page visit
-        initial_cookies = [cookie.name for cookie in session.cookies]
-        debug_info.append(f"Cookies after main page: {', '.join(initial_cookies) if initial_cookies else 'None'}")
-        
-        # Add a small delay to appear more human-like
-        time.sleep(1)
-        
-        # Now get the login page to check if we need to login
-        login_url = mam_url.rstrip('/') + '/login.php'
-        debug_info.append(f"Accessing login URL: {login_url}")
-        
-        # Update headers for the login page request
-        login_headers = {
-            'Referer': main_url,
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'same-origin',
-            'Sec-Fetch-User': '?1'
-        }
-        
-        response = session.get(login_url, headers=login_headers, timeout=10)
-        
-        debug_info.append(f"Login page status: {response.status_code}")
-        debug_info.append(f"Final URL after redirects: {response.url}")
-        
-        if response.status_code != 200:
-            return jsonify({
-                'success': False,
-                'message': f'Failed to access MAM login page. Status: {response.status_code}',
-                'debug_info': debug_info
-            })
-        
-        # Simple login detection: if we access main page and DON'T get redirected to login.php, we're logged in
-        main_page_response = session.get(main_url, timeout=10)
-        debug_info.append(f"Main page final URL: {main_page_response.url}")
-        
-        if 'login.php' not in main_page_response.url:
-            debug_info.append("Already logged in - main page accessible without redirect to login")
-            return jsonify({
-                'success': True,
-                'message': 'Already logged into MAM (main page accessible)',
-                'redirect_url': main_page_response.url,
-                'debug_info': debug_info
-            })
-        
-        # If we reach here, we need to login - parse the login page for input fields
-        from bs4 import BeautifulSoup
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Look for form element first
-        login_form = soup.find('form')
-        
-        # If no form found, look directly for input fields (MAM might not use standard form structure)
-        if not login_form:
-            debug_info.append("No <form> element found, looking for input fields directly")
-            # Look for any input fields on the page
-            all_inputs = soup.find_all('input')
-            if not all_inputs:
-                debug_info.append("No input fields found on page")
-                
-                # Check if the response is properly decoded
-                page_text = response.text
-                if 'Login Email:' in page_text and 'Password:' in page_text:
-                    debug_info.append("Found login text but no input fields - possible JavaScript requirement")
-                    # Try to find the form action by looking for form elements in the raw HTML
-                    if '<form' in page_text:
-                        import re
-                        form_match = re.search(r'<form[^>]*action=["\']([^"\'\']*)["\']', page_text)
-                        if form_match:
-                            debug_info.append(f"Found form action: {form_match.group(1)}")
-                    
-                    # For MAM, try the standard takelogin.php approach with known field names
-                    debug_info.append("Attempting standard MAM login with hardcoded field names")
-                    
-                    # MAM typically uses these field names
-                    login_data = {
-                        'username': username,  # Try username first
-                        'password': password
-                    }
-                    
-                    # Also try email field
-                    if '@' in username:
-                        login_data = {
-                            'email': username,
-                            'password': password
-                        }
-                    
-                    # Submit to standard MAM login endpoint
-                    form_action = mam_url.rstrip('/') + '/takelogin.php'
-                    debug_info.append(f"Submitting to: {form_action}")
-                    debug_info.append(f"Login data keys: {list(login_data.keys())}")
-                    
-                    time.sleep(1)
-                    
-                    # Set proper headers for form submission
-                    form_headers = {
-                        'Referer': response.url,
-                        'Origin': mam_url.rstrip('/'),
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'Sec-Fetch-Dest': 'document',
-                        'Sec-Fetch-Mode': 'navigate',
-                        'Sec-Fetch-Site': 'same-origin',
-                        'Sec-Fetch-User': '?1'
-                    }
-                    
-                    login_response = session.post(form_action, data=login_data, headers=form_headers, timeout=10, allow_redirects=True)
-                    
-                    debug_info.append(f"Login response status: {login_response.status_code}")
-                    debug_info.append(f"Final redirect URL: {login_response.url}")
-                    
-                    # Check if login was successful
-                    if 'login.php' not in login_response.url:
-                        return jsonify({
-                            'success': True,
-                            'message': 'Successfully logged into MAM using standard approach',
-                            'redirect_url': login_response.url,
-                            'debug_info': debug_info
-                        })
-                    else:
-                        debug_info.append("Standard approach failed - still on login page")
-                        return jsonify({
-                            'success': False,
-                            'message': 'Login failed using standard approach',
-                            'debug_info': debug_info
-                        })
-                
-                # Show page snippet for debugging
-                page_snippet = response.text[:1000] + "..." if len(response.text) > 1000 else response.text
-                debug_info.append(f"Page content: {page_snippet}")
-                return jsonify({
-                    'success': False,
-                    'message': 'Could not find any input fields on MAM login page',
-                    'debug_info': debug_info
-                })
-            debug_info.append(f"Found {len(all_inputs)} input fields without form wrapper")
-        
-        # Get all input fields (either from form or entire page)
-        if login_form:
-            debug_info.append(f"Form found with action: {login_form.get('action', 'No action')}")
-            all_inputs = login_form.find_all('input')
-            form_action = login_form.get('action', '/takelogin.php')
-        else:
-            all_inputs = soup.find_all('input')
-            # Default action for MAM
-            form_action = '/takelogin.php'
-            
-        input_info = []
-        for inp in all_inputs:
-            input_info.append(f"{inp.get('name', 'unnamed')}({inp.get('type', 'text')})")
-        debug_info.append(f"Input fields found: {', '.join(input_info)}")
-        
-        # Prepare login data - try multiple common field names
-        login_data = {}
-        
-        # Find username field - look in all_inputs we found
-        username_field = None
-        for field_name in ['email', 'username', 'user', 'login']:  # email first since MAM uses email
-            for inp in all_inputs:
-                if inp.get('name') == field_name:
-                    username_field = field_name
-                    break
-            if username_field:
-                break
-        
-        # Find password field  
-        password_field = None
-        for field_name in ['password', 'pass', 'pwd']:
-            for inp in all_inputs:
-                if inp.get('name') == field_name:
-                    password_field = field_name
-                    break
-            if password_field:
-                break
-                
-        if username_field and password_field:
-            login_data[username_field] = username
-            login_data[password_field] = password
-            debug_info.append(f"Using fields: {username_field}, {password_field}")
-            
-            # Add remember me checkbox if present (helps with cookie persistence)
-            for inp in all_inputs:
-                if inp.get('name') and 'remember' in inp.get('name', '').lower():
-                    login_data[inp['name']] = 'on'  # Checkbox value
-                    debug_info.append(f"Added remember me field: {inp['name']}")
-                    break
-        else:
-            debug_info.append("Could not identify username/password fields")
-            return jsonify({
-                'success': False,
-                'message': 'Could not identify login form fields',
-                'debug_info': debug_info
-            })
-        
-        # Add any hidden form fields and submit button
-        for inp in all_inputs:
-            if inp.get('type') == 'hidden' and inp.get('name') and inp.get('value'):
-                login_data[inp['name']] = inp['value']
-                debug_info.append(f"Added hidden field: {inp['name']}")
-            elif inp.get('type') == 'submit' and inp.get('value'):
-                # Some sites require the submit button value
-                if inp.get('name'):
-                    login_data[inp['name']] = inp['value']
-                    debug_info.append(f"Added submit field: {inp['name']} = {inp['value']}")
-                else:
-                    # For unnamed submit buttons, sometimes we need to add a generic submit field
-                    login_data['submit'] = inp['value']
-                    debug_info.append(f"Added unnamed submit: {inp['value']}")
-        
-        # Submit login form using the form_action we determined earlier
-        if not form_action.startswith('http'):
-            form_action = mam_url.rstrip('/') + '/' + form_action.lstrip('/')
-        
-        debug_info.append(f"Submitting to: {form_action}")
-        debug_info.append(f"Login data keys: {list(login_data.keys())}")
-        
-        # Check that we have cookies before submitting
-        cookies_info = []
-        for cookie in session.cookies:
-            cookies_info.append(f"{cookie.name}")
-        debug_info.append(f"Cookies before login: {', '.join(cookies_info) if cookies_info else 'None'}")
-        
-        # Add another small delay
-        time.sleep(1)
-        
-        # Set proper headers for form submission with JavaScript simulation
-        form_headers = {
-            'Referer': login_url,
-            'Origin': mam_url.rstrip('/'),
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-Requested-With': 'XMLHttpRequest',  # Sometimes helps with JavaScript detection
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'same-origin',
-            'Sec-Fetch-User': '?1',
-            'Sec-CH-UA': '"Chromium";v="120", "Not_A Brand";v="8", "Google Chrome";v="120"',
-            'Sec-CH-UA-Mobile': '?0',
-            'Sec-CH-UA-Platform': '"Windows"'
-        }
-        
-        login_response = session.post(form_action, data=login_data, headers=form_headers, timeout=10, allow_redirects=True)
-        
-        debug_info.append(f"Login response status: {login_response.status_code}")
-        debug_info.append(f"Final redirect URL: {login_response.url}")
-        
-        if login_response.status_code != 200:
-            return jsonify({
-                'success': False,
-                'message': f'Login request failed. Status: {login_response.status_code}',
-                'debug_info': debug_info
-            })
-        
-        # Check if login was successful - look for common failure indicators
-        response_text_lower = login_response.text.lower()
-        
-        # Check for specific error messages first
-        if 'cookies are not really enabled' in response_text_lower:
-            error_msg = "Cookie error detected. MAM thinks cookies are disabled."
-            debug_info.append("Specific error: Cookies not enabled")
-            return jsonify({
-                'success': False,
-                'message': error_msg,
-                'debug_info': debug_info
-            })
-        
-        # Common failure indicators
-        failure_indicators = [
-            'login.php' in login_response.url,
-            'invalid' in response_text_lower,
-            'incorrect' in response_text_lower,
-            'error' in response_text_lower and 'login' in response_text_lower,
-            'username' in response_text_lower and 'password' in response_text_lower and 'form' in response_text_lower
-        ]
-        
-        debug_info.append(f"Failure indicators: {sum(failure_indicators)} found")
-        
-        if any(failure_indicators):
-            # Look for specific error messages
-            error_msg = "Login failed. Please check your username and password."
-            if 'invalid' in response_text_lower:
-                error_msg += " (Invalid credentials)"
-            elif 'banned' in response_text_lower or 'disabled' in response_text_lower:
-                error_msg += " (Account may be banned/disabled)"
-            elif 'robot' in response_text_lower or 'bot' in response_text_lower:
-                error_msg += " (Detected as automated - need better browser simulation)"
-            
-            return jsonify({
-                'success': False,
-                'message': error_msg,
-                'debug_info': debug_info
-            })
-        
-        debug_info.append("Login appears successful")
-        return jsonify({
-            'success': True,
-            'message': 'Successfully logged into MAM',
-            'redirect_url': login_response.url,
-            'debug_info': debug_info
-        })
-        
-    except Exception as e:
-        print(f"MAM login error: {e}")
-        debug_info.append(f"Exception: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': f'Login error: {str(e)}',
-            'debug_info': debug_info
-        })
-
-@app.route('/api/login_mam_selenium', methods=['POST'])
-def api_login_mam_selenium():
-    """Login to MAM using Selenium for JavaScript support"""
+    """Login to MyAnonamouse using Selenium for JavaScript support"""
     settings = load_settings()
     debug_info = []
     
@@ -676,7 +321,7 @@ def api_login_mam_selenium():
                     
                     return jsonify({
                         'success': True,
-                        'message': 'Successfully logged into MAM using Selenium',
+                        'message': 'Successfully logged into MAM',
                         'redirect_url': final_url,
                         'debug_info': debug_info
                     })
@@ -728,33 +373,83 @@ def api_login_mam_selenium():
 
 @app.route('/api/view_mam_page', methods=['GET'])
 def api_view_mam_page():
-    """View the current MAM page content for debugging"""
+    """View MAM page using Selenium for proper JavaScript rendering"""
     settings = load_settings()
     mam_url = settings.get('mam_url', 'https://www.myanonamouse.net/')
+    debug_info = []
     
     try:
-        session = get_mam_session()
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.chrome.service import Service
+        from webdriver_manager.chrome import ChromeDriverManager
         
-        # Get the current page (either login or main page)
-        page_url = request.args.get('url', mam_url)
-        if not page_url.startswith('http'):
-            page_url = mam_url.rstrip('/') + '/' + page_url.lstrip('/')
+        # Setup Chrome options for headless browsing
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--disable-extensions')
+        chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        
+        debug_info.append("Starting Chrome browser")
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        
+        try:
+            # Get the requested page URL
+            page_url = request.args.get('url', mam_url)
+            if not page_url.startswith('http'):
+                page_url = mam_url.rstrip('/') + '/' + page_url.lstrip('/')
+                
+            debug_info.append(f"Navigating to: {page_url}")
+            driver.get(page_url)
             
-        response = session.get(page_url, timeout=10)
-        
-        return jsonify({
-            'success': True,
-            'url': response.url,
-            'status_code': response.status_code,
-            'content': response.text[:2000],  # First 2000 chars
-            'content_length': len(response.text),
-            'cookies': [{'name': c.name, 'value': c.value[:50]} for c in session.cookies]
-        })
-        
-    except Exception as e:
+            # Wait for page to load
+            time.sleep(3)
+            
+            # Get page info
+            current_url = driver.current_url
+            page_title = driver.title
+            page_source = driver.page_source
+            
+            debug_info.append(f"Page loaded. Title: {page_title}")
+            debug_info.append(f"Current URL: {current_url}")
+            
+            # Check if we're logged in based on URL and content
+            logged_in = 'login.php' not in current_url
+            if logged_in:
+                debug_info.append("User appears to be logged in")
+            else:
+                debug_info.append("User appears to be NOT logged in")
+            
+            return jsonify({
+                'success': True,
+                'url': current_url,
+                'title': page_title,
+                'content': page_source[:5000],  # First 5000 chars for inspection
+                'content_length': len(page_source),
+                'logged_in': logged_in,
+                'debug_info': debug_info
+            })
+            
+        finally:
+            driver.quit()
+            debug_info.append("Closed browser")
+            
+    except ImportError:
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'Selenium not available. Install selenium and chrome driver.',
+            'debug_info': debug_info
+        })
+    except Exception as e:
+        debug_info.append(f"Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'debug_info': debug_info
         })
 
 if __name__ == '__main__':
