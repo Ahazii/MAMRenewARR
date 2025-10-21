@@ -286,43 +286,66 @@ def api_login_mam():
                 'debug_info': debug_info
             })
         
-        # If we reach here, we need to login - parse the login form
+        # If we reach here, we need to login - parse the login page for input fields
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Look for form element first
         login_form = soup.find('form')
         
+        # If no form found, look directly for input fields (MAM might not use standard form structure)
         if not login_form:
-            debug_info.append("No login form found on login page")
-            return jsonify({
-                'success': False,
-                'message': 'Could not find login form on MAM login page',
-                'debug_info': debug_info
-            })
+            debug_info.append("No <form> element found, looking for input fields directly")
+            # Look for any input fields on the page
+            all_inputs = soup.find_all('input')
+            if not all_inputs:
+                debug_info.append("No input fields found on page")
+                # Show page snippet for debugging
+                page_snippet = response.text[:1000] + "..." if len(response.text) > 1000 else response.text
+                debug_info.append(f"Page content: {page_snippet}")
+                return jsonify({
+                    'success': False,
+                    'message': 'Could not find any input fields on MAM login page',
+                    'debug_info': debug_info
+                })
+            debug_info.append(f"Found {len(all_inputs)} input fields without form wrapper")
         
-        debug_info.append(f"Form found with action: {login_form.get('action', 'No action')}")
-        
-        # Find all input fields to understand the form structure
-        all_inputs = login_form.find_all('input')
+        # Get all input fields (either from form or entire page)
+        if login_form:
+            debug_info.append(f"Form found with action: {login_form.get('action', 'No action')}")
+            all_inputs = login_form.find_all('input')
+            form_action = login_form.get('action', '/takelogin.php')
+        else:
+            all_inputs = soup.find_all('input')
+            # Default action for MAM
+            form_action = '/takelogin.php'
+            
         input_info = []
         for inp in all_inputs:
             input_info.append(f"{inp.get('name', 'unnamed')}({inp.get('type', 'text')})")
-        debug_info.append(f"Form inputs: {', '.join(input_info)}")
+        debug_info.append(f"Input fields found: {', '.join(input_info)}")
         
         # Prepare login data - try multiple common field names
         login_data = {}
         
-        # Find username field
+        # Find username field - look in all_inputs we found
         username_field = None
-        for field_name in ['username', 'user', 'login', 'email']:
-            if login_form.find('input', {'name': field_name}):
-                username_field = field_name
+        for field_name in ['email', 'username', 'user', 'login']:  # email first since MAM uses email
+            for inp in all_inputs:
+                if inp.get('name') == field_name:
+                    username_field = field_name
+                    break
+            if username_field:
                 break
         
         # Find password field  
         password_field = None
         for field_name in ['password', 'pass', 'pwd']:
-            if login_form.find('input', {'name': field_name}):
-                password_field = field_name
+            for inp in all_inputs:
+                if inp.get('name') == field_name:
+                    password_field = field_name
+                    break
+            if password_field:
                 break
                 
         if username_field and password_field:
@@ -338,13 +361,12 @@ def api_login_mam():
             })
         
         # Add any hidden form fields
-        for hidden_input in login_form.find_all('input', type='hidden'):
-            if hidden_input.get('name') and hidden_input.get('value'):
-                login_data[hidden_input['name']] = hidden_input['value']
-                debug_info.append(f"Added hidden field: {hidden_input['name']}")
+        for inp in all_inputs:
+            if inp.get('type') == 'hidden' and inp.get('name') and inp.get('value'):
+                login_data[inp['name']] = inp['value']
+                debug_info.append(f"Added hidden field: {inp['name']}")
         
-        # Submit login form
-        form_action = login_form.get('action', '/takelogin.php')
+        # Submit login form using the form_action we determined earlier
         if not form_action.startswith('http'):
             form_action = mam_url.rstrip('/') + '/' + form_action.lstrip('/')
         
