@@ -954,5 +954,320 @@ def api_delete_old_sessions():
             'debug_info': debug_info
         })
 
+def create_session_cookie(cookie_type, ip_address, use_asn, allow_dynamic_seedbox, label):
+    """Helper function to create a session cookie"""
+    settings = load_settings()
+    security_page_url = settings.get('security_page', 'https://www.myanonamouse.net/preferences/index.php?view=security')
+    debug_info = []
+    
+    try:
+        driver = get_or_create_global_driver()
+        if not driver:
+            return {'success': False, 'message': 'Could not create browser instance', 'debug_info': debug_info}
+        
+        debug_info.append(f"Creating {cookie_type} session cookie")
+        
+        # Ensure we're logged into MAM
+        try:
+            ensure_mam_login(driver, settings)
+            debug_info.append("Login ensured")
+        except Exception as e:
+            debug_info.append(f"Login failed: {str(e)}")
+            return {'success': False, 'message': f'Login failed: {str(e)}', 'debug_info': debug_info}
+        
+        from selenium.webdriver.common.by import By
+        from selenium.common.exceptions import NoSuchElementException
+        
+        # Navigate to security page
+        debug_info.append("Navigating to security page")
+        driver.get(security_page_url)
+        time.sleep(3)
+        
+        # Find the "Create session" form at the bottom
+        debug_info.append("Looking for Create session form")
+        try:
+            # Find the row with "Create session" text
+            create_session_row = driver.find_element(By.XPATH, "//td[contains(@class, 'row2') and text()='Create session']")
+            debug_info.append("Found Create session row")
+            
+            # Get the form container (should be in same table)
+            form_table = create_session_row.find_element(By.XPATH, "./ancestor::table[1]")
+            debug_info.append("Found form table")
+            
+        except NoSuchElementException:
+            debug_info.append("Could not find Create session form")
+            return {'success': False, 'message': 'Create session form not found', 'debug_info': debug_info}
+        
+        # Fill in the IP address
+        try:
+            ip_field = form_table.find_element(By.ID, "iip")
+            ip_field.clear()
+            ip_field.send_keys(ip_address)
+            debug_info.append(f"Entered IP address: {ip_address}")
+        except NoSuchElementException:
+            debug_info.append("Could not find IP input field")
+            return {'success': False, 'message': 'IP input field not found', 'debug_info': debug_info}
+        
+        # Select ASN or IP radio button
+        try:
+            if use_asn:
+                # Select ASN radio button
+                asn_radio = form_table.find_element(By.CSS_SELECTOR, "input[name='asn'][value='yes']")
+                asn_radio.click()
+                debug_info.append("Selected ASN radio button")
+            else:
+                # Select IP radio button
+                ip_radio = form_table.find_element(By.CSS_SELECTOR, "input[name='asn'][value='no']")
+                ip_radio.click()
+                debug_info.append("Selected IP radio button")
+        except NoSuchElementException:
+            debug_info.append("Could not find ASN/IP radio buttons")
+            return {'success': False, 'message': 'ASN/IP radio buttons not found', 'debug_info': debug_info}
+        
+        # Select Dynamic Seedbox radio button
+        try:
+            if allow_dynamic_seedbox:
+                # Select Yes for dynamic seedbox
+                dyn_yes_radio = form_table.find_element(By.CSS_SELECTOR, "input[name='dynSeed'][value='yes']")
+                dyn_yes_radio.click()
+                debug_info.append("Selected Yes for Dynamic Seedbox")
+            else:
+                # Select No for dynamic seedbox
+                dyn_no_radio = form_table.find_element(By.CSS_SELECTOR, "input[name='dynSeed'][value='no']")
+                dyn_no_radio.click()
+                debug_info.append("Selected No for Dynamic Seedbox")
+        except NoSuchElementException:
+            debug_info.append("Could not find Dynamic Seedbox radio buttons")
+            return {'success': False, 'message': 'Dynamic Seedbox radio buttons not found', 'debug_info': debug_info}
+        
+        # Fill in the label
+        try:
+            label_field = form_table.find_element(By.ID, "sLabel")
+            label_field.clear()
+            label_field.send_keys(label)
+            debug_info.append(f"Entered label: {label}")
+        except NoSuchElementException:
+            debug_info.append("Could not find label field")
+            return {'success': False, 'message': 'Label field not found', 'debug_info': debug_info}
+        
+        # Click submit button
+        try:
+            submit_button = form_table.find_element(By.CSS_SELECTOR, "input[type='submit'][value='Submit changes!']")
+            submit_button.click()
+            debug_info.append("Clicked submit button")
+        except NoSuchElementException:
+            debug_info.append("Could not find submit button")
+            return {'success': False, 'message': 'Submit button not found', 'debug_info': debug_info}
+        
+        # Wait and handle confirmation dialog
+        confirmation_handled = False
+        max_wait_attempts = 5
+        
+        for wait_attempt in range(max_wait_attempts):
+            time.sleep(0.5)
+            
+            # Check for browser alert
+            try:
+                alert = driver.switch_to.alert
+                alert_text = alert.text
+                debug_info.append(f"Confirmation alert detected: '{alert_text}'")
+                log_info(f"Session creation confirmation alert: '{alert_text}'")
+                
+                # Click "OK" to confirm
+                alert.accept()
+                debug_info.append("Confirmed session creation")
+                log_info("Confirmed session creation by clicking OK on alert")
+                confirmation_handled = True
+                time.sleep(3)
+                break
+            except:
+                pass  # No browser alert
+            
+            # Check for modal dialogs
+            try:
+                modal_selectors = [
+                    ".modal", "[role=dialog]", ".dialog", ".popup", 
+                    "#confirm-dialog", ".confirm-popup", ".swal2-container"
+                ]
+                
+                for selector in modal_selectors:
+                    modals = driver.find_elements(By.CSS_SELECTOR, selector)
+                    for modal in modals:
+                        if modal.is_displayed():
+                            debug_info.append(f"Modal dialog detected with selector '{selector}'")
+                            
+                            # Look for OK/Confirm button in modal
+                            ok_buttons = modal.find_elements(By.CSS_SELECTOR, 
+                                "button, input[type='button'], input[type='submit']")
+                            
+                            # Filter buttons by text content
+                            confirm_buttons = []
+                            for btn in ok_buttons:
+                                btn_text = btn.text.upper() if btn.text else ''
+                                btn_value = (btn.get_attribute('value') or '').upper()
+                                if any(keyword in btn_text or keyword in btn_value for keyword in ['OK', 'CONFIRM', 'YES']):
+                                    confirm_buttons.append(btn)
+                            
+                            ok_buttons = confirm_buttons
+                            
+                            if ok_buttons:
+                                ok_buttons[0].click()
+                                debug_info.append("Clicked OK button in modal dialog")
+                                confirmation_handled = True
+                                time.sleep(3)
+                                break
+                    
+                    if confirmation_handled:
+                        break
+            except Exception as modal_error:
+                debug_info.append(f"Modal check error: {modal_error}")
+            
+            if confirmation_handled:
+                break
+        
+        if not confirmation_handled:
+            debug_info.append("WARNING: No confirmation dialog was handled")
+            log_info("WARNING: No confirmation dialog found for session creation")
+        
+        # Wait for page to load and extract cookie
+        time.sleep(3)
+        
+        try:
+            # Look for the cookie textarea
+            cookie_textarea = driver.find_element(By.XPATH, "//textarea[@cols='100'][@rows='10']")
+            cookie_value = cookie_textarea.get_attribute('value')
+            debug_info.append(f"Extracted cookie (length: {len(cookie_value)})")
+            
+            if not cookie_value or len(cookie_value) < 50:
+                debug_info.append("Cookie appears to be empty or too short")
+                return {'success': False, 'message': 'Cookie extraction failed - empty or invalid cookie', 'debug_info': debug_info}
+            
+            # Store cookie in settings
+            settings = load_settings()
+            if cookie_type == 'qBittorrent':
+                settings['qbittorrent_session_cookie'] = cookie_value
+            elif cookie_type == 'Prowlarr':
+                settings['prowlarr_session_cookie'] = cookie_value
+            
+            save_settings(settings)
+            debug_info.append(f"Saved {cookie_type} cookie to settings")
+            
+            # Refresh the page to show the new session
+            debug_info.append("Refreshing page to show new session")
+            driver.get(security_page_url)
+            time.sleep(2)
+            
+            log_info(f"✓ Successfully created {cookie_type} session cookie")
+            
+            return {
+                'success': True, 
+                'message': f'Successfully created {cookie_type} session cookie',
+                'cookie': cookie_value[:50] + '...' if len(cookie_value) > 50 else cookie_value,  # Truncated for display
+                'debug_info': debug_info
+            }
+            
+        except NoSuchElementException:
+            debug_info.append("Could not find cookie textarea")
+            return {'success': False, 'message': 'Cookie textarea not found', 'debug_info': debug_info}
+        
+    except ImportError:
+        return {'success': False, 'message': 'Selenium not available.', 'debug_info': debug_info}
+    except Exception as e:
+        debug_info.append(f"Error: {str(e)}")
+        return {'success': False, 'message': f'Session creation error: {str(e)}', 'debug_info': debug_info}
+
+@app.route('/api/create_qbittorrent_cookie', methods=['POST'])
+def api_create_qbittorrent_cookie():
+    """Create qBittorrent session cookie"""
+    log_info("Create qBittorrent Session Cookie request started")
+    
+    # Get IP addresses from existing data (should be available from previous Get IPs call)
+    try:
+        # We'll use the /api/get_ips endpoint to get current IP values
+        settings = load_settings()
+        debug_info = []
+        
+        # Get VPN IP for qBittorrent
+        # Try to read from the same logic used in get_ips
+        vpn_ip = "Not Found"
+        logpath = settings.get('qbittorrentvpn_logpath', '/app/shared/qbittorrent-logs/qbittorrent.log')
+        
+        if os.path.exists(logpath):
+            try:
+                with open(logpath, 'r', encoding='utf-8', errors='ignore') as f:
+                    lines = f.readlines()
+                
+                # Look for VPN IP patterns
+                for line in reversed(lines[-500:]):  # Check last 500 lines
+                    if 'Your IP:' in line or 'IP Address:' in line:
+                        import re
+                        ip_match = re.search(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b', line)
+                        if ip_match:
+                            potential_ip = ip_match.group()
+                            if not potential_ip.startswith(('127.', '192.168.', '10.', '172.')):
+                                vpn_ip = potential_ip
+                                break
+            except Exception as e:
+                debug_info.append(f"Error reading VPN IP: {e}")
+        
+        if vpn_ip == "Not Found":
+            return jsonify({
+                'success': False,
+                'message': 'VPN IP not found. Please click "Get IPs" first to detect the VPN IP address.',
+                'debug_info': debug_info
+            })
+        
+        # Create qBittorrent session cookie
+        result = create_session_cookie(
+            cookie_type='qBittorrent',
+            ip_address=vpn_ip,
+            use_asn=True,  # Select ASN radio button
+            allow_dynamic_seedbox=True,  # Select Yes for dynamic seedbox
+            label='qBittorrent'
+        )
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error creating qBittorrent cookie: {str(e)}',
+            'debug_info': [str(e)]
+        })
+
+@app.route('/api/create_prowlarr_cookie', methods=['POST'])
+def api_create_prowlarr_cookie():
+    """Create Prowlarr session cookie"""
+    log_info("Create Prowlarr Session Cookie request started")
+    
+    # Get external IP for Prowlarr
+    try:
+        ext_ip = requests.get('https://api.ipify.org', timeout=10).text.strip()
+        
+        if not ext_ip:
+            return jsonify({
+                'success': False,
+                'message': 'External IP not found. Please check your internet connection.',
+                'debug_info': ['Failed to get external IP']
+            })
+        
+        # Create Prowlarr session cookie
+        result = create_session_cookie(
+            cookie_type='Prowlarr',
+            ip_address=ext_ip,
+            use_asn=False,  # Select IP radio button
+            allow_dynamic_seedbox=False,  # Select No for dynamic seedbox
+            label='Prowlarr'
+        )
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error creating Prowlarr cookie: {str(e)}',
+            'debug_info': [str(e)]
+        })
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
