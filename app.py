@@ -1593,7 +1593,7 @@ def api_restart_qbittorrent_container():
     status_updates = []
     
     try:
-        import docker
+        import subprocess
         
         # Get settings
         settings = load_settings()
@@ -1617,30 +1617,74 @@ def api_restart_qbittorrent_container():
         if not qbittorrent_url.startswith('http'):
             qbittorrent_url = 'http://' + qbittorrent_url
         
-        # Connect to Docker
-        status_updates.append("Connecting to Docker...")
-        log_info("Connecting to Docker daemon")
-        client = docker.from_env()
+        # Check if container exists
+        status_updates.append("Checking if container exists...")
+        log_info("Checking if container exists")
         
-        # Get container
         try:
-            container = client.containers.get(container_name)
+            result = subprocess.run(
+                ['docker', 'ps', '-a', '--filter', f'name={container_name}', '--format', '{{.Names}}'],
+                capture_output=True, text=True, timeout=10
+            )
+            
+            if result.returncode != 0:
+                status_updates.append(f"Docker command failed: {result.stderr}")
+                log_info(f"Docker ps command failed: {result.stderr}")
+                return jsonify({
+                    'success': False,
+                    'message': 'Failed to check Docker container status',
+                    'status_updates': status_updates
+                })
+            
+            container_list = result.stdout.strip().split('\n')
+            if not any(container_name in name for name in container_list if name):
+                status_updates.append(f"Container '{container_name}' not found")
+                log_info(f"Container '{container_name}' not found")
+                return jsonify({
+                    'success': False,
+                    'message': f"Container '{container_name}' not found",
+                    'status_updates': status_updates
+                })
+            
             status_updates.append(f"Found container: {container_name}")
             log_info(f"Found container: {container_name}")
-        except docker.errors.NotFound:
-            status_updates.append(f"Container '{container_name}' not found")
-            log_info(f"Container '{container_name}' not found")
+            
+        except subprocess.TimeoutExpired:
+            status_updates.append("Docker command timed out")
             return jsonify({
                 'success': False,
-                'message': f"Container '{container_name}' not found",
+                'message': 'Docker command timed out',
                 'status_updates': status_updates
             })
         
         # Restart container
         status_updates.append("Restarting container...")
         log_info(f"Restarting container {container_name}")
-        container.restart()
-        status_updates.append("Container restart command sent")
+        
+        try:
+            result = subprocess.run(
+                ['docker', 'restart', container_name],
+                capture_output=True, text=True, timeout=30
+            )
+            
+            if result.returncode == 0:
+                status_updates.append("Container restart command sent")
+                log_info("Container restart command successful")
+            else:
+                status_updates.append(f"Restart command failed: {result.stderr}")
+                log_info(f"Restart command failed: {result.stderr}")
+                return jsonify({
+                    'success': False,
+                    'message': f'Restart command failed: {result.stderr}',
+                    'status_updates': status_updates
+                })
+        except subprocess.TimeoutExpired:
+            status_updates.append("Restart command timed out")
+            return jsonify({
+                'success': False,
+                'message': 'Restart command timed out',
+                'status_updates': status_updates
+            })
         
         # Monitor URL to check if container is up
         status_updates.append(f"Monitoring {qbittorrent_url} for up to {restart_delay} seconds...")
@@ -1678,8 +1722,31 @@ def api_restart_qbittorrent_container():
             # Stop container
             status_updates.append("Stopping container...")
             log_info(f"Stopping container {container_name}")
-            container.stop()
-            status_updates.append("Container stopped")
+            
+            try:
+                result = subprocess.run(
+                    ['docker', 'stop', container_name],
+                    capture_output=True, text=True, timeout=60
+                )
+                
+                if result.returncode == 0:
+                    status_updates.append("Container stopped")
+                    log_info("Container stop command successful")
+                else:
+                    status_updates.append(f"Stop command failed: {result.stderr}")
+                    log_info(f"Stop command failed: {result.stderr}")
+                    return jsonify({
+                        'success': False,
+                        'message': f'Stop command failed: {result.stderr}',
+                        'status_updates': status_updates
+                    })
+            except subprocess.TimeoutExpired:
+                status_updates.append("Stop command timed out")
+                return jsonify({
+                    'success': False,
+                    'message': 'Stop command timed out',
+                    'status_updates': status_updates
+                })
             
             # Wait for restart_delay
             status_updates.append(f"Waiting {restart_delay} seconds...")
@@ -1689,8 +1756,31 @@ def api_restart_qbittorrent_container():
             # Start container
             status_updates.append("Starting container...")
             log_info(f"Starting container {container_name}")
-            container.start()
-            status_updates.append("Container start command sent")
+            
+            try:
+                result = subprocess.run(
+                    ['docker', 'start', container_name],
+                    capture_output=True, text=True, timeout=30
+                )
+                
+                if result.returncode == 0:
+                    status_updates.append("Container start command sent")
+                    log_info("Container start command successful")
+                else:
+                    status_updates.append(f"Start command failed: {result.stderr}")
+                    log_info(f"Start command failed: {result.stderr}")
+                    return jsonify({
+                        'success': False,
+                        'message': f'Start command failed: {result.stderr}',
+                        'status_updates': status_updates
+                    })
+            except subprocess.TimeoutExpired:
+                status_updates.append("Start command timed out")
+                return jsonify({
+                    'success': False,
+                    'message': 'Start command timed out',
+                    'status_updates': status_updates
+                })
             
             # Monitor again
             status_updates.append(f"Monitoring {qbittorrent_url} for up to {restart_delay} seconds...")
@@ -1728,13 +1818,6 @@ def api_restart_qbittorrent_container():
                     'status_updates': status_updates
                 })
             
-    except ImportError:
-        status_updates.append("Docker SDK not available")
-        return jsonify({
-            'success': False,
-            'message': 'Docker SDK not available. Please install docker python package.',
-            'status_updates': status_updates
-        })
     except Exception as e:
         status_updates.append(f"Error: {str(e)}")
         log_info(f"Restart container error: {str(e)}")
