@@ -53,10 +53,13 @@
 <div class="box">
   <h3>Step 4</h3>
   <div class="button-row">
-    <button title="Open window into the Prowlarr Docker">Log into Prowlarr</button>
-    <button title="Send Prowlarr Cookie">Send Prowlarr Cookie</button>
-    <button title="Logout of Prowlarr">Logout of Prowlarr</button>
+    <button id="prowlarr-login-btn" title="Open browser to Prowlarr web interface">Log into Prowlarr</button>
+    <button id="prowlarr-send-cookie-btn" title="Update MyAnonamouse indexer with Prowlarr cookie">Send Cookie to Prowlarr</button>
+    <button id="prowlarr-logout-btn" title="Close Prowlarr browser session">Logout Prowlarr</button>
   </div>
+  <div id="prowlarr-result" style="margin-top:1em;font-weight:600;"></div>
+  <div id="prowlarr-debug" style="margin-top:0.5em;font-size:0.8em;color:#666;background:#f5f5f5;padding:0.5em;border-radius:4px;white-space:pre-line;max-height:200px;overflow-y:auto;display:none;"></div>
+  <button id="toggle-prowlarr-debug" style="margin-top:0.5em;display:none;" title="Show/Hide Prowlarr debug information">Show Debug</button>
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -85,6 +88,12 @@ document.addEventListener('DOMContentLoaded', function() {
   const prowlarrCookieDisplay = document.getElementById('prowlarr-cookie-display');
   const qbittorrentCookieLabel = document.getElementById('qbittorrent-cookie-label');
   const prowlarrCookieLabel = document.getElementById('prowlarr-cookie-label');
+  const prowlarrLoginBtn = document.getElementById('prowlarr-login-btn');
+  const prowlarrSendCookieBtn = document.getElementById('prowlarr-send-cookie-btn');
+  const prowlarrLogoutBtn = document.getElementById('prowlarr-logout-btn');
+  const prowlarrResultDiv = document.getElementById('prowlarr-result');
+  const prowlarrDebugDiv = document.getElementById('prowlarr-debug');
+  const toggleProwlarrDebugBtn = document.getElementById('toggle-prowlarr-debug');
   
   // Function to load and display existing cookies
   function loadExistingCookies() {
@@ -593,6 +602,134 @@ document.addEventListener('DOMContentLoaded', function() {
       }).catch(error => {
         qbittorrentLogoutBtn.disabled = false;
         qbittorrentResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+      });
+    });
+  }
+  
+  // Prowlarr debug toggle functionality
+  if (toggleProwlarrDebugBtn) {
+    toggleProwlarrDebugBtn.addEventListener('click', function() {
+      if (prowlarrDebugDiv.style.display === 'none') {
+        prowlarrDebugDiv.style.display = 'block';
+        toggleProwlarrDebugBtn.textContent = 'Hide Debug';
+      } else {
+        prowlarrDebugDiv.style.display = 'none';
+        toggleProwlarrDebugBtn.textContent = 'Show Debug';
+      }
+    });
+  }
+  
+  // Prowlarr Login button functionality
+  if (prowlarrLoginBtn) {
+    prowlarrLoginBtn.addEventListener('click', function() {
+      prowlarrResultDiv.textContent = 'Connecting to Prowlarr web interface...';
+      prowlarrResultDiv.style.color = '#666';
+      prowlarrLoginBtn.disabled = true;
+      prowlarrDebugDiv.style.display = 'none';
+      toggleProwlarrDebugBtn.style.display = 'none';
+      
+      fetch('/api/prowlarr_login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(r => r.json()).then(data => {
+        prowlarrLoginBtn.disabled = false;
+        
+        if (data.success) {
+          prowlarrResultDiv.innerHTML = `<span style='color:#007700'>✓ ${data.message}</span>`;
+          if (data.page_title) {
+            prowlarrResultDiv.innerHTML += `<br><small>Page: ${data.page_title}</small>`;
+          }
+        } else {
+          prowlarrResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+        }
+        
+        // Show debug information if available
+        if (data.debug_info && data.debug_info.length > 0) {
+          prowlarrDebugDiv.textContent = data.debug_info.join('\n');
+          toggleProwlarrDebugBtn.style.display = 'inline-block';
+          toggleProwlarrDebugBtn.textContent = 'Show Debug';
+        }
+      }).catch(error => {
+        prowlarrLoginBtn.disabled = false;
+        prowlarrResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+      });
+    });
+  }
+  
+  // Prowlarr Send Cookie button functionality
+  if (prowlarrSendCookieBtn) {
+    prowlarrSendCookieBtn.addEventListener('click', function() {
+      prowlarrResultDiv.textContent = 'Updating Prowlarr MyAnonamouse indexer...';
+      prowlarrResultDiv.style.color = '#666';
+      prowlarrSendCookieBtn.disabled = true;
+      prowlarrDebugDiv.style.display = 'none';
+      toggleProwlarrDebugBtn.style.display = 'none';
+      
+      fetch('/api/prowlarr_send_cookie', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(r => r.json()).then(data => {
+        prowlarrSendCookieBtn.disabled = false;
+        
+        if (data.success) {
+          prowlarrResultDiv.innerHTML = `<span style='color:#007700'>✓ ${data.message}</span>`;
+          if (data.test_result) {
+            let testIcon = data.test_result === 'success' ? '✓' : 
+                          data.test_result === 'failure' ? '✗' : '⚠';
+            let testColor = data.test_result === 'success' ? '#007700' : 
+                           data.test_result === 'failure' ? '#bb0000' : '#ff8800';
+            prowlarrResultDiv.innerHTML += `<br><small>Test Result: <span style='color:${testColor}'>${testIcon} ${data.test_result}</span></small>`;
+          }
+        } else {
+          prowlarrResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+          if (data.test_result) {
+            prowlarrResultDiv.innerHTML += `<br><small>Test Result: ${data.test_result}</small>`;
+          }
+        }
+        
+        // Show debug information if available
+        if (data.debug_info && data.debug_info.length > 0) {
+          prowlarrDebugDiv.textContent = data.debug_info.join('\n');
+          toggleProwlarrDebugBtn.style.display = 'inline-block';
+          toggleProwlarrDebugBtn.textContent = 'Show Debug';
+        }
+      }).catch(error => {
+        prowlarrSendCookieBtn.disabled = false;
+        prowlarrResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+      });
+    });
+  }
+  
+  // Prowlarr Logout button functionality
+  if (prowlarrLogoutBtn) {
+    prowlarrLogoutBtn.addEventListener('click', function() {
+      prowlarrResultDiv.textContent = 'Closing Prowlarr browser session...';
+      prowlarrResultDiv.style.color = '#666';
+      prowlarrLogoutBtn.disabled = true;
+      prowlarrDebugDiv.style.display = 'none';
+      toggleProwlarrDebugBtn.style.display = 'none';
+      
+      fetch('/api/prowlarr_logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(r => r.json()).then(data => {
+        prowlarrLogoutBtn.disabled = false;
+        
+        if (data.success) {
+          prowlarrResultDiv.innerHTML = `<span style='color:#007700'>✓ ${data.message}</span>`;
+        } else {
+          prowlarrResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+        }
+        
+        // Show debug information if available
+        if (data.debug_info && data.debug_info.length > 0) {
+          prowlarrDebugDiv.textContent = data.debug_info.join('\n');
+          toggleProwlarrDebugBtn.style.display = 'inline-block';
+          toggleProwlarrDebugBtn.textContent = 'Show Debug';
+        }
+      }).catch(error => {
+        prowlarrLogoutBtn.disabled = false;
+        prowlarrResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
       });
     });
   }

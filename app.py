@@ -1586,5 +1586,481 @@ def api_qbittorrent_logout():
             'debug_info': debug_info
         })
 
+# Global variable to track Prowlarr browser state
+prowlarr_driver = None
+
+@app.route('/api/prowlarr_login', methods=['POST'])
+def api_prowlarr_login():
+    """Login to Prowlarr web interface using Selenium"""
+    log_info("Prowlarr Login request started")
+    debug_info = []
+    
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.chrome.service import Service
+        from webdriver_manager.chrome import ChromeDriverManager
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        
+        global prowlarr_driver
+        
+        # Get Prowlarr settings
+        settings = load_settings()
+        prowlarr_url = settings.get('prowlarr_url', '')
+        prowlarr_username = settings.get('prowlarr_username', '')
+        prowlarr_password = settings.get('prowlarr_password', '')
+        
+        if not prowlarr_url:
+            debug_info.append("Prowlarr URL not configured")
+            return jsonify({
+                'success': False,
+                'message': 'Prowlarr URL not configured. Please set in Config page.',
+                'debug_info': debug_info
+            })
+        
+        # Ensure URL has http:// prefix
+        if not prowlarr_url.startswith('http'):
+            prowlarr_url = 'http://' + prowlarr_url
+        
+        debug_info.append(f"Connecting to Prowlarr at: {prowlarr_url}")
+        log_info(f"Connecting to Prowlarr at: {prowlarr_url}")
+        
+        # Create browser instance
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+        
+        service = Service(ChromeDriverManager().install())
+        prowlarr_driver = webdriver.Chrome(service=service, options=chrome_options)
+        debug_info.append("Browser instance created")
+        
+        # Navigate to Prowlarr
+        prowlarr_driver.get(prowlarr_url)
+        time.sleep(3)
+        debug_info.append(f"Navigated to {prowlarr_url}")
+        
+        # Check if login is required
+        try:
+            # Look for login form elements
+            login_form = prowlarr_driver.find_elements(By.CSS_SELECTOR, 'input[type="text"], input[type="password"]')
+            
+            if login_form and prowlarr_username and prowlarr_password:
+                debug_info.append("Login form detected, attempting authentication")
+                log_info("Prowlarr requires authentication, logging in...")
+                
+                # Find username and password fields
+                username_field = prowlarr_driver.find_element(By.CSS_SELECTOR, 'input[type="text"]')
+                password_field = prowlarr_driver.find_element(By.CSS_SELECTOR, 'input[type="password"]')
+                
+                username_field.clear()
+                username_field.send_keys(prowlarr_username)
+                password_field.clear()
+                password_field.send_keys(prowlarr_password)
+                
+                # Submit login
+                submit_button = prowlarr_driver.find_element(By.CSS_SELECTOR, 'button[type="submit"], input[type="submit"]')
+                submit_button.click()
+                time.sleep(3)
+                
+                debug_info.append("Login submitted")
+                log_info("Prowlarr login credentials submitted")
+            elif not prowlarr_username or not prowlarr_password:
+                debug_info.append("No credentials provided - assuming auth disabled for local network")
+                log_debug("Prowlarr authentication skipped - no credentials configured")
+            
+        except Exception as login_error:
+            debug_info.append(f"No login required or login error: {login_error}")
+            log_debug(f"Prowlarr login check: {login_error}")
+        
+        # Verify page loaded
+        page_title = prowlarr_driver.title
+        debug_info.append(f"Page title: {page_title}")
+        log_info(f"Prowlarr page loaded successfully: {page_title}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully connected to Prowlarr',
+            'page_title': page_title,
+            'debug_info': debug_info
+        })
+        
+    except Exception as e:
+        debug_info.append(f"Error connecting to Prowlarr: {str(e)}")
+        log_info(f"Prowlarr login error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Failed to connect to Prowlarr: {str(e)}',
+            'debug_info': debug_info
+        })
+
+@app.route('/api/prowlarr_send_cookie', methods=['POST'])
+def api_prowlarr_send_cookie():
+    """Update Prowlarr MyAnonamouse indexer with MAM session cookie"""
+    log_info("Prowlarr Send Cookie request started")
+    debug_info = []
+    
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.common.exceptions import TimeoutException, NoSuchElementException
+        
+        global prowlarr_driver
+        
+        if not prowlarr_driver:
+            debug_info.append("No active Prowlarr browser session")
+            return jsonify({
+                'success': False,
+                'message': 'No active Prowlarr session. Please click "Log into Prowlarr" first.',
+                'debug_info': debug_info
+            })
+        
+        # Get Prowlarr cookie from settings
+        settings = load_settings()
+        prowlarr_cookie = settings.get('prowlarr_session_cookie', '')
+        
+        if not prowlarr_cookie or prowlarr_cookie == '0':
+            debug_info.append("No Prowlarr cookie found")
+            return jsonify({
+                'success': False,
+                'message': 'No Prowlarr cookie found. Please create one in Step 2 first.',
+                'debug_info': debug_info
+            })
+        
+        debug_info.append(f"Using Prowlarr cookie (length: {len(prowlarr_cookie)} chars)")
+        log_info("Starting Prowlarr cookie update automation")
+        
+        # Step 1: Find MyAnonamouse indexer row
+        debug_info.append("Step 1: Looking for MyAnonamouse indexer")
+        log_debug("Searching for MyAnonamouse indexer in table")
+        
+        try:
+            # Wait for table to load
+            WebDriverWait(prowlarr_driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "table, div[class*='Table']"))
+            )
+            debug_info.append("Indexer table loaded")
+            
+            # Find all rows and look for MyAnonamouse
+            rows = prowlarr_driver.find_elements(By.CSS_SELECTOR, "tr, div[class*='row']")
+            debug_info.append(f"Found {len(rows)} rows to check")
+            
+            mam_row = None
+            for row in rows:
+                row_text = row.text.lower()
+                if 'myanonamouse' in row_text:
+                    mam_row = row
+                    debug_info.append(f"Found MyAnonamouse row: {row.text[:100]}...")
+                    log_info("MyAnonamouse indexer found")
+                    break
+            
+            if not mam_row:
+                debug_info.append("MyAnonamouse indexer not found in table")
+                log_info("ERROR: MyAnonamouse indexer not found")
+                return jsonify({
+                    'success': False,
+                    'message': 'MyAnonamouse indexer not found in Prowlarr',
+                    'debug_info': debug_info
+                })
+            
+        except TimeoutException:
+            debug_info.append("Timeout waiting for indexer table")
+            return jsonify({
+                'success': False,
+                'message': 'Timeout loading Prowlarr indexer table',
+                'debug_info': debug_info
+            })
+        
+        # Step 2: Click spanner/edit icon
+        debug_info.append("Step 2: Clicking edit icon for MyAnonamouse")
+        log_debug("Attempting to click edit button")
+        
+        try:
+            # Find the edit button (spanner icon) in the row
+            edit_button = mam_row.find_element(By.CSS_SELECTOR, 'button[aria-label="Table Options Button"][title="Edit Indexer"]')
+            prowlarr_driver.execute_script("arguments[0].scrollIntoView(true);", edit_button)
+            time.sleep(0.5)
+            edit_button.click()
+            debug_info.append("Edit button clicked")
+            log_info("Edit Indexer button clicked")
+            time.sleep(2)
+            
+        except NoSuchElementException:
+            debug_info.append("Could not find edit button - trying alternative selector")
+            try:
+                # Try alternative selector
+                edit_button = mam_row.find_element(By.CSS_SELECTOR, 'button[title="Edit Indexer"]')
+                edit_button.click()
+                debug_info.append("Edit button clicked (alternative selector)")
+                time.sleep(2)
+            except Exception as alt_error:
+                debug_info.append(f"Failed to find edit button: {alt_error}")
+                return jsonify({
+                    'success': False,
+                    'message': 'Could not find Edit button for MyAnonamouse',
+                    'debug_info': debug_info
+                })
+        
+        # Step 3: Wait for Edit Indexer popup
+        debug_info.append("Step 3: Waiting for Edit Indexer popup")
+        log_debug("Waiting for edit dialog to appear")
+        
+        try:
+            # Wait for modal/dialog to appear
+            WebDriverWait(prowlarr_driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "div[class*='Modal'], div[role='dialog'], form"))
+            )
+            debug_info.append("Edit popup appeared")
+            log_info("Edit Indexer popup loaded")
+            time.sleep(1)
+            
+        except TimeoutException:
+            debug_info.append("Timeout waiting for edit popup")
+            return jsonify({
+                'success': False,
+                'message': 'Edit Indexer popup did not appear',
+                'debug_info': debug_info
+            })
+        
+        # Step 4: Find and update Mam Id field
+        debug_info.append("Step 4: Locating Mam Id field")
+        log_debug("Searching for Mam Id input field")
+        
+        try:
+            # Find the Mam Id input field
+            # Try multiple strategies to find the field
+            mam_id_field = None
+            
+            # Strategy 1: Look for input with label "Mam Id"
+            try:
+                labels = prowlarr_driver.find_elements(By.TAG_NAME, 'label')
+                for label in labels:
+                    if 'mam id' in label.text.lower():
+                        # Find associated input
+                        label_for = label.get_attribute('for')
+                        if label_for:
+                            mam_id_field = prowlarr_driver.find_element(By.ID, label_for)
+                        break
+            except:
+                pass
+            
+            # Strategy 2: Look for input with name or id containing "mam"
+            if not mam_id_field:
+                inputs = prowlarr_driver.find_elements(By.CSS_SELECTOR, 'input[type="text"], input[type="password"]')
+                for inp in inputs:
+                    name = (inp.get_attribute('name') or '').lower()
+                    id_attr = (inp.get_attribute('id') or '').lower()
+                    if 'mam' in name or 'mam' in id_attr:
+                        mam_id_field = inp
+                        break
+            
+            if not mam_id_field:
+                debug_info.append("Could not locate Mam Id field")
+                return jsonify({
+                    'success': False,
+                    'message': 'Could not find Mam Id field in edit form',
+                    'debug_info': debug_info
+                })
+            
+            debug_info.append("Found Mam Id field")
+            log_info("Mam Id field located")
+            
+            # Clear and enter new cookie
+            mam_id_field.clear()
+            mam_id_field.send_keys(prowlarr_cookie)
+            debug_info.append(f"Entered Prowlarr cookie into Mam Id field")
+            log_info("Prowlarr cookie entered into Mam Id field")
+            time.sleep(1)
+            
+        except Exception as field_error:
+            debug_info.append(f"Error updating Mam Id field: {field_error}")
+            return jsonify({
+                'success': False,
+                'message': f'Failed to update Mam Id field: {str(field_error)}',
+                'debug_info': debug_info
+            })
+        
+        # Step 5: Click Test button and monitor result
+        debug_info.append("Step 5: Clicking Test button")
+        log_info("Testing Prowlarr cookie with Test button")
+        
+        test_result = 'unknown'
+        try:
+            # Find Test button
+            test_buttons = prowlarr_driver.find_elements(By.CSS_SELECTOR, 'button')
+            test_button = None
+            for btn in test_buttons:
+                if 'test' in btn.text.lower():
+                    test_button = btn
+                    break
+            
+            if not test_button:
+                debug_info.append("Could not find Test button")
+                test_result = 'button_not_found'
+            else:
+                debug_info.append("Found Test button, clicking...")
+                test_button.click()
+                log_debug("Test button clicked, monitoring for result")
+                
+                # Wait for button state change and monitor icon
+                time.sleep(2)  # Wait for test to execute
+                
+                # Check button for success/failure icon
+                try:
+                    # Look for success indicators (green check, success class)
+                    button_html = test_button.get_attribute('outerHTML')
+                    button_class = test_button.get_attribute('class') or ''
+                    
+                    # Check for SVG icons in button
+                    svgs = test_button.find_elements(By.TAG_NAME, 'svg')
+                    for svg in svgs:
+                        data_icon = svg.get_attribute('data-icon') or ''
+                        if 'check' in data_icon or 'success' in data_icon:
+                            test_result = 'success'
+                            debug_info.append("Test SUCCESS - Green check icon detected")
+                            log_info("✓ Prowlarr cookie test PASSED")
+                            break
+                        elif 'exclamation' in data_icon or 'error' in data_icon or 'times' in data_icon:
+                            test_result = 'failure'
+                            debug_info.append("Test FAILED - Error icon detected")
+                            log_info("✗ Prowlarr cookie test FAILED")
+                            break
+                    
+                    # Check button classes for success/error states
+                    if test_result == 'unknown':
+                        if 'success' in button_class.lower() or 'positive' in button_class.lower():
+                            test_result = 'success'
+                            debug_info.append("Test SUCCESS detected from button class")
+                            log_info("✓ Prowlarr cookie test PASSED (class)")
+                        elif 'error' in button_class.lower() or 'negative' in button_class.lower() or 'danger' in button_class.lower():
+                            test_result = 'failure'
+                            debug_info.append("Test FAILED detected from button class")
+                            log_info("✗ Prowlarr cookie test FAILED (class)")
+                    
+                    debug_info.append(f"Button HTML sample: {button_html[:200]}...")
+                    
+                except Exception as icon_error:
+                    debug_info.append(f"Could not detect test result icon: {icon_error}")
+                    test_result = 'unknown'
+                
+                time.sleep(2)  # Wait for icon to be visible
+                
+        except Exception as test_error:
+            debug_info.append(f"Error during test: {test_error}")
+            test_result = 'error'
+        
+        # Report test result but continue to save
+        if test_result == 'success':
+            debug_info.append("✓ Test passed - cookie is valid")
+        elif test_result == 'failure':
+            debug_info.append("⚠ Test failed - but continuing to save anyway as requested")
+        else:
+            debug_info.append("⚠ Test result unclear - continuing to save anyway")
+        
+        # Step 6: Click Save button
+        debug_info.append("Step 6: Clicking Save button")
+        log_info("Saving Prowlarr indexer configuration")
+        
+        try:
+            # Find Save button
+            save_buttons = prowlarr_driver.find_elements(By.CSS_SELECTOR, 'button')
+            save_button = None
+            for btn in save_buttons:
+                if 'save' in btn.text.lower():
+                    save_button = btn
+                    break
+            
+            if not save_button:
+                debug_info.append("Could not find Save button")
+                return jsonify({
+                    'success': False,
+                    'message': 'Could not find Save button',
+                    'test_result': test_result,
+                    'debug_info': debug_info
+                })
+            
+            save_button.click()
+            debug_info.append("Save button clicked")
+            log_info("Save button clicked")
+            time.sleep(3)  # Wait for save to complete
+            
+            debug_info.append("✓ Prowlarr cookie update completed")
+            log_info("✓ Successfully updated Prowlarr MyAnonamouse indexer")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully updated Prowlarr cookie (Test: {test_result})',
+                'test_result': test_result,
+                'debug_info': debug_info
+            })
+            
+        except Exception as save_error:
+            debug_info.append(f"Error clicking Save button: {save_error}")
+            return jsonify({
+                'success': False,
+                'message': f'Failed to save: {str(save_error)}',
+                'test_result': test_result,
+                'debug_info': debug_info
+            })
+        
+    except Exception as e:
+        debug_info.append(f"Unexpected error: {str(e)}")
+        log_info(f"Prowlarr send cookie error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error updating Prowlarr cookie: {str(e)}',
+            'debug_info': debug_info
+        })
+
+@app.route('/api/prowlarr_logout', methods=['POST'])
+def api_prowlarr_logout():
+    """Logout from Prowlarr by closing browser"""
+    log_info("Prowlarr Logout request started")
+    debug_info = []
+    
+    try:
+        global prowlarr_driver
+        
+        if prowlarr_driver:
+            try:
+                prowlarr_driver.quit()
+                debug_info.append("Browser closed")
+                log_info("Prowlarr browser session closed")
+                return jsonify({
+                    'success': True,
+                    'message': 'Successfully logged out from Prowlarr',
+                    'debug_info': debug_info
+                })
+            except Exception as e:
+                debug_info.append(f"Error closing browser: {e}")
+                return jsonify({
+                    'success': False,
+                    'message': f'Error closing browser: {str(e)}',
+                    'debug_info': debug_info
+                })
+            finally:
+                prowlarr_driver = None
+        else:
+            debug_info.append("No active browser session")
+            return jsonify({
+                'success': True,
+                'message': 'No active Prowlarr session to close',
+                'debug_info': debug_info
+            })
+            
+    except Exception as e:
+        debug_info.append(f"Error during logout: {str(e)}")
+        log_info(f"Prowlarr logout error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Logout error: {str(e)}',
+            'debug_info': debug_info
+        })
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

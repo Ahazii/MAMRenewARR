@@ -42,12 +42,12 @@
   <h3>Prowlarr</h3>
   <label for="prowlarr-url">Prowlarr url:</label>
   <input type="text" id="prowlarr-url" value="192.168.1.55:9696">
-  <label for="prowlarr-username">Username:</label>
-  <input type="text" id="prowlarr-username">
-  <label for="prowlarr-password">Password:</label>
+  <label for="prowlarr-username">Prowlarr Username:</label>
+  <input type="text" id="prowlarr-username" placeholder="Not needed if auth disabled for local network">
+  <label for="prowlarr-password">Prowlarr Password:</label>
   <div style="display:flex;align-items:center;gap:0.5em;">
-    <input type="password" id="prowlarr-password">
-    <button title="Show/Hide password">👁️</button>
+    <input type="password" id="prowlarr-password" placeholder="Not needed if auth disabled for local network">
+    <button id="prowlarr-password-toggle" title="Show/Hide password">👁️</button>
   </div>
 </div>
 <div class="box config-fields">
@@ -72,6 +72,10 @@ document.addEventListener('DOMContentLoaded', function() {
   const mamPasswordToggle = document.getElementById('mam-password-toggle');
   const securityPageInput = document.getElementById('security-page');
   const loglevelSelect = document.getElementById('loglevel');
+  const prowlarrUrlInput = document.getElementById('prowlarr-url');
+  const prowlarrUsernameInput = document.getElementById('prowlarr-username');
+  const prowlarrPasswordInput = document.getElementById('prowlarr-password');
+  const prowlarrPasswordToggle = document.getElementById('prowlarr-password-toggle');
   const saveBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Save Config');
   const cancelBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Cancel');
 
@@ -85,6 +89,9 @@ document.addEventListener('DOMContentLoaded', function() {
       if (data.mam_password) mamPasswordInput.value = data.mam_password;
       if (data.security_page) securityPageInput.value = data.security_page;
       if (data.loglevel) loglevelSelect.value = data.loglevel;
+      if (data.prowlarr_url) prowlarrUrlInput.value = data.prowlarr_url;
+      if (data.prowlarr_username) prowlarrUsernameInput.value = data.prowlarr_username;
+      if (data.prowlarr_password) prowlarrPasswordInput.value = data.prowlarr_password;
     });
   }
 
@@ -97,7 +104,10 @@ document.addEventListener('DOMContentLoaded', function() {
       mam_username: mamUsernameInput.value,
       mam_password: mamPasswordInput.value,
       security_page: securityPageInput.value,
-      loglevel: loglevelSelect.value
+      loglevel: loglevelSelect.value,
+      prowlarr_url: prowlarrUrlInput.value,
+      prowlarr_username: prowlarrUsernameInput.value,
+      prowlarr_password: prowlarrPasswordInput.value
     };
     fetch('/api/settings', {
       method: 'POST',
@@ -122,6 +132,18 @@ document.addEventListener('DOMContentLoaded', function() {
       } else {
         mamPasswordInput.type = 'password';
         mamPasswordToggle.textContent = '👁️';
+      }
+    });
+  }
+  
+  if (prowlarrPasswordToggle) {
+    prowlarrPasswordToggle.addEventListener('click', function() {
+      if (prowlarrPasswordInput.type === 'password') {
+        prowlarrPasswordInput.type = 'text';
+        prowlarrPasswordToggle.textContent = '🙈';
+      } else {
+        prowlarrPasswordInput.type = 'password';
+        prowlarrPasswordToggle.textContent = '👁️';
       }
     });
   }

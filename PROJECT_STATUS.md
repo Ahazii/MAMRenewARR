@@ -23,6 +23,7 @@
 - **Old Session Cleanup**: Automated removal of expired sessions with dialog handling
 - **Page Viewer**: Real browser window for MAM navigation
 - **Cookie Timestamps**: Date/time tracking for session creation
+- **Logout & Clear Functions**: MAM logout and cookie clearing capabilities
 
 #### 4. IP Detection System
 - **External IP**: Public IP address detection
@@ -34,6 +35,14 @@
 - **Cookie Storage**: Session cookies with timestamps
 - **Log Level Management**: Configurable logging with persistence
 - **Auto-loading**: Settings restored on application restart
+
+#### 6. Step 3: qBittorrent Docker Integration
+- **Container Communication**: Docker exec commands to `binhex-qbittorrentvpn`
+- **Connection Management**: Container connection state tracking
+- **Curl Command Execution**: MAM dynamic seedbox API calls with session cookies
+- **Response Validation**: Parse `{"Success":true` responses for session confirmation
+- **Docker CLI Integration**: Full Docker CLI available in container
+- **Socket Mounting**: Secure Docker daemon communication via socket
 
 ### 🔧 Technical Implementation Details
 
@@ -87,9 +96,14 @@ MAMRenewARR/
 - `POST /api/get_ips` - IP detection
 - `POST /api/login_mam` - MAM login
 - `GET /api/view_mam` - MAM page viewer
-- `POST /api/create_qbittorrent_session` - qBittorrent cookie
-- `POST /api/create_prowlarr_session` - Prowlarr cookie
+- `POST /api/logout_mam` - MAM logout
+- `POST /api/clear_cookies` - Clear session cookies
+- `POST /api/create_qbittorrent_cookie` - qBittorrent cookie creation
+- `POST /api/create_prowlarr_cookie` - Prowlarr cookie creation
 - `POST /api/delete_old_sessions` - Session cleanup
+- `POST /api/qbittorrent_login` - qBittorrent container connection
+- `POST /api/qbittorrent_send_cookie` - Send cookie via curl to qBittorrent
+- `POST /api/qbittorrent_logout` - qBittorrent container disconnect
 - `POST /api/save_config` - Settings persistence
 - `GET /api/load_config` - Settings retrieval
 
@@ -104,15 +118,23 @@ The application is fully functional and ready for deployment:
 
 1. **Pull latest code**: `git pull origin main`
 2. **Build container**: `docker build -t mamrenewarr:latest .`
-3. **Deploy**: Use provided Docker run commands
-4. **Test**: All features working as documented
+3. **Deploy with Docker socket**: 
+   ```bash
+   docker run -d --name mamrenewarr -p 5000:5000 \
+     -v /mnt/user/appdata/MAMRenewARR:/app/data \
+     -v /var/run/docker.sock:/var/run/docker.sock:ro \
+     -v /mnt/user/appdata/binhex-qbittorrentvpn/qBittorrent/data/logs:/app/shared/qbittorrent-logs:ro \
+     --restart unless-stopped mamrenewarr:latest
+   ```
+4. **Test**: All Steps 1-3 working, Step 4 planned
 
 ### 📝 Next Development Phase (Future)
-- Timer-based automation for scheduled execution
-- Enhanced error reporting and recovery
-- Additional torrent client integrations
-- Performance optimizations
-- Unit test coverage
+- **Step 4: Prowlarr Integration** - Similar Docker container communication for Prowlarr
+- **Timer-based automation** for scheduled execution of complete workflow
+- **Enhanced error reporting** and recovery mechanisms
+- **Additional torrent client integrations** beyond qBittorrent
+- **Performance optimizations** and caching
+- **Unit test coverage** for critical functions
 
 ---
 

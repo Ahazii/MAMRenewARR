@@ -66,8 +66,13 @@ Visit `http://YOUR-UNRAID-IP:5000` in your browser.
 
 1. **Step 1 - Get IPs**: Click to detect external and VPN IP addresses
 2. **Step 2 - Login to MAM**: Automated browser login with session management
-3. **Step 3 - Create Sessions**: Generate qBittorrent and Prowlarr session cookies
-4. **Step 4 - Clean Old Sessions**: Remove expired sessions from MAM account
+3. **Step 3 - qBittorrent Integration**: Connect to qBittorrent container and secure MAM session
+4. **Step 4 - Prowlarr Integration**: Connect to Prowlarr container (planned)
+
+#### Step 3 Details:
+- **Log into qBittorrent**: Connect to `binhex-qbittorrentvpn` Docker container
+- **Send Cookie to qBittorrent**: Execute curl command with MAM session cookie
+- **Logout qBittorrent**: Clean disconnect from container
 
 ### Configuration
 
@@ -86,13 +91,18 @@ Visit `http://YOUR-UNRAID-IP:5000` in your browser.
 - ✅ Old session cleanup automation
 - ✅ Cookie timestamp tracking
 - ✅ Settings persistence (cookies, timestamps, log level)
+- ✅ **Step 3: qBittorrent Docker integration with curl command execution**
+- ✅ **Docker CLI integration with socket mounting**
+- 🔄 Step 4: Prowlarr integration (planned)
 - 🔄 Scheduled automation (timer-based execution)
 
 ## Requirements
 
 - Docker-enabled system (Unraid, Linux, Windows)
+- **Docker socket access** (for Step 3 container communication)
 - Network access to qBittorrentVPN container (for log parsing)
 - Port 5000 available
+- `binhex-qbittorrentvpn` container running (for Step 3)
 
 ## Author
 
