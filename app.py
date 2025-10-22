@@ -42,10 +42,8 @@ file_handler.setFormatter(file_formatter)
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
-# Also configure root logger for other libraries
+# Configure root logger level only (handlers are already on our logger)
 logging.getLogger().setLevel(logging.INFO)
-logging.getLogger().addHandler(console_handler)
-logging.getLogger().addHandler(file_handler)
 
 def load_settings():
     # Ensure data directory exists
@@ -3007,27 +3005,39 @@ def save_run_to_history(success, steps):
         
         log_info(f"Run saved to history: {status} - {entry['details']}")
 
-def calculate_next_run_time():
-    """Calculate next run time with jitter"""
+def calculate_next_run_time(add_interval_days=False):
+    """Calculate next run time with jitter
+    
+    Args:
+        add_interval_days: If True, add the configured interval days (used after execution)
+                          If False, calculate next occurrence (used on initial setup)
+    """
     from datetime import datetime, timedelta
     import random
     
     settings = load_settings()
     scheduled_time = settings.get('scheduled_run_time', '02:00')
     jitter_minutes = int(settings.get('jitter_minutes', 10))
+    interval_days = int(settings.get('timer_interval_days', 1))
     
-    log_debug(f"Calculating next run time: scheduled={scheduled_time}, jitter=±{jitter_minutes}")
+    log_debug(f"Calculating next run time: scheduled={scheduled_time}, jitter=±{jitter_minutes}, interval={interval_days} days, add_interval={add_interval_days}")
     
     # Parse scheduled time
     hour, minute = map(int, scheduled_time.split(':'))
     
-    # Get tomorrow's date at scheduled time
+    # Get next scheduled date at scheduled time
     now = datetime.now()
     next_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
     
-    # If scheduled time already passed today, use tomorrow
-    if next_run <= now:
-        next_run = next_run + timedelta(days=1)
+    if add_interval_days:
+        # After execution: always add the configured interval days from now
+        next_run = next_run + timedelta(days=interval_days)
+        log_debug(f"Adding {interval_days} day(s) to next run time (post-execution)")
+    else:
+        # Initial setup: if scheduled time already passed today, use tomorrow
+        if next_run <= now:
+            next_run = next_run + timedelta(days=1)
+            log_debug(f"Scheduled time passed today, using next occurrence")
     
     # Add random jitter
     jitter_offset = random.randint(-jitter_minutes, jitter_minutes)
@@ -3076,8 +3086,8 @@ def timer_worker():
                             import traceback
                             log_debug(f"Timer execution traceback: {traceback.format_exc()}")
                     
-                    # Calculate next run time
-                    next_run_dt = calculate_next_run_time()
+                    # Calculate next run time (add interval days after execution)
+                    next_run_dt = calculate_next_run_time(add_interval_days=True)
                     with timer_lock:
                         timer_state['next_run'] = next_run_dt.strftime('%Y-%m-%d %H:%M:%S')
                     

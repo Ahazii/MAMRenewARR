@@ -34,6 +34,9 @@
   <label for="jitter-minutes" style="margin-top:1em;">Jitter (minutes):</label>
   <input type="number" id="jitter-minutes" value="10" min="0" max="60" title="Random minutes to add or subtract from scheduled time (e.g., 10 means run between -10 to +10 minutes of scheduled time)">
   <small style="display:block;margin-top:0.3em;color:#666;">Random variance (±) added to scheduled time. For example, if set to 10 minutes, tasks will run within ±10 minutes of the scheduled time.</small>
+  <label for="timer-interval-days" style="margin-top:1em;">Run Interval (days):</label>
+  <input type="number" id="timer-interval-days" value="1" min="1" max="365" title="Number of days between each automated run (e.g., 1 for daily, 7 for weekly)">
+  <small style="display:block;margin-top:0.3em;color:#666;">Number of days to wait between each run. Set to 1 for daily, 7 for weekly, etc.</small>
 </div>
 <div class="box config-fields">
   <h3>Unraid</h3>
@@ -88,6 +91,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const securityPageInput = document.getElementById('security-page');
   const scheduledRunTimeInput = document.getElementById('scheduled-run-time');
   const jitterMinutesInput = document.getElementById('jitter-minutes');
+  const timerIntervalDaysInput = document.getElementById('timer-interval-days');
   const loglevelSelect = document.getElementById('loglevel');
   const prowlarrUrlInput = document.getElementById('prowlarr-url');
   const prowlarrUsernameInput = document.getElementById('prowlarr-username');
@@ -109,6 +113,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (data.security_page) securityPageInput.value = data.security_page;
       if (data.scheduled_run_time) scheduledRunTimeInput.value = data.scheduled_run_time;
       if (data.jitter_minutes) jitterMinutesInput.value = data.jitter_minutes;
+      if (data.timer_interval_days) timerIntervalDaysInput.value = data.timer_interval_days;
       if (data.loglevel) loglevelSelect.value = data.loglevel;
       if (data.prowlarr_url) prowlarrUrlInput.value = data.prowlarr_url;
       if (data.prowlarr_username) prowlarrUsernameInput.value = data.prowlarr_username;
@@ -129,6 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
       security_page: securityPageInput.value,
       scheduled_run_time: scheduledRunTimeInput.value,
       jitter_minutes: jitterMinutesInput.value,
+      timer_interval_days: timerIntervalDaysInput.value,
       loglevel: loglevelSelect.value,
       prowlarr_url: prowlarrUrlInput.value,
       prowlarr_username: prowlarrUsernameInput.value,
