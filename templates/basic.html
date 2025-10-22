@@ -18,6 +18,7 @@
     <button id="timer-toggle" style="padding:0.5em 1em;font-weight:bold;" title="Click to start/stop automated timer">TIMER OFF</button>
   </div>
   <div id="timer-info" style="margin-top:1em;">
+    <div style="margin-bottom:0.5em;"><strong>Current Server Time:</strong> <span id="current-server-time" style="color:#0066cc;">Loading...</span></div>
     <div style="margin-bottom:0.5em;"><strong>Next Run:</strong> <span id="next-run-time">Not scheduled</span></div>
     <div style="margin-bottom:0.5em;"><strong>Last Run:</strong> <span id="last-run-time">Never</span></div>
   </div>
@@ -40,9 +41,27 @@ document.addEventListener('DOMContentLoaded', function() {
   const nextRunTime = document.getElementById('next-run-time');
   const lastRunTime = document.getElementById('last-run-time');
   const runHistory = document.getElementById('run-history');
+  const currentServerTime = document.getElementById('current-server-time');
   
   let timerActive = false;
   let statusCheckInterval = null;
+  
+  // Update current server time every second
+  function updateCurrentTime() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const timeString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    currentServerTime.textContent = timeString;
+  }
+  
+  // Update time immediately and then every second
+  updateCurrentTime();
+  setInterval(updateCurrentTime, 1000);
   
   // Helper function to update status display
   function updateStatus(message, isError = false) {
