@@ -56,6 +56,10 @@
   <input type="text" id="qbittorrentvpn-container" value="binhex-qbittorrentvpn" title="Name of the qBittorrentVPN Docker container">
   <label for="qbittorrentvpn-logpath">Log File Path:</label>
   <input type="text" id="qbittorrentvpn-logpath" value="/app/shared/qbittorrent-logs/qbittorrent.log" title="Path to the host-mounted qBittorrent log inside this container">
+  <label for="qbittorrent-url">qBittorrent URL:</label>
+  <input type="text" id="qbittorrent-url" value="http://192.168.1.55:8080" title="URL to access qBittorrent web UI (e.g., http://192.168.1.55:8080). Used to verify the container has restarted successfully.">
+  <label for="qbittorrent-restart-delay">Restart Delay (seconds):</label>
+  <input type="number" id="qbittorrent-restart-delay" value="120" min="30" max="600" title="Maximum time (in seconds) to wait for qBittorrent container to restart and become accessible. Also used as delay between stop and start in fallback scenario.">
 </div>
 <div class="box button-row">
   <button title="Save config changes">Save Config</button>
@@ -66,6 +70,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // Elements
   const containerInput = document.getElementById('qbittorrentvpn-container');
   const logpathInput = document.getElementById('qbittorrentvpn-logpath');
+  const qbittorrentUrlInput = document.getElementById('qbittorrent-url');
+  const qbittorrentRestartDelayInput = document.getElementById('qbittorrent-restart-delay');
   const mamUrlInput = document.getElementById('mam-url');
   const mamUsernameInput = document.getElementById('mam-username');
   const mamPasswordInput = document.getElementById('mam-password');
@@ -84,6 +90,8 @@ document.addEventListener('DOMContentLoaded', function() {
     fetch('/api/settings').then(r => r.json()).then(data => {
       if (data.qbittorrentvpn_container) containerInput.value = data.qbittorrentvpn_container;
       if (data.qbittorrentvpn_logpath) logpathInput.value = data.qbittorrentvpn_logpath;
+      if (data.qbittorrent_url) qbittorrentUrlInput.value = data.qbittorrent_url;
+      if (data.qbittorrent_restart_delay) qbittorrentRestartDelayInput.value = data.qbittorrent_restart_delay;
       if (data.mam_url) mamUrlInput.value = data.mam_url;
       if (data.mam_username) mamUsernameInput.value = data.mam_username;
       if (data.mam_password) mamPasswordInput.value = data.mam_password;
@@ -100,6 +108,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const data = {
       qbittorrentvpn_container: containerInput.value,
       qbittorrentvpn_logpath: logpathInput.value,
+      qbittorrent_url: qbittorrentUrlInput.value,
+      qbittorrent_restart_delay: qbittorrentRestartDelayInput.value,
       mam_url: mamUrlInput.value,
       mam_username: mamUsernameInput.value,
       mam_password: mamPasswordInput.value,

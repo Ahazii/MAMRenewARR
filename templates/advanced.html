@@ -5,9 +5,11 @@
   <h3>Step 1</h3>
   <div class="button-row">
     <button id="get-ips-btn" title="Open a log file and work out what the External IP address is, and get Prowlarr IP">Get IP's</button>
+    <button id="restart-qbittorrent-btn" title="Restart the binhex-qbittorrentvpn Docker container">Restart qBittorrentvpn</button>
     <button id="toggle-debug-btn" title="Show/Hide debug information" style="display:none;">Show Debug</button>
   </div>
   <div id="ips-result" style="margin-top:1em;font-weight:600;"></div>
+  <div id="restart-result" style="margin-top:1em;font-weight:600;"></div>
   <div id="debug-info" style="margin-top:1em;font-size:0.8em;color:#666;background:#f5f5f5;padding:0.5em;border-radius:4px;white-space:pre-line;max-height:200px;overflow-y:auto;display:none;"></div>
 </div>
 <div class="box">
@@ -64,8 +66,10 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const getIpsBtn = document.getElementById('get-ips-btn');
+  const restartQbittorrentBtn = document.getElementById('restart-qbittorrent-btn');
   const toggleDebugBtn = document.getElementById('toggle-debug-btn');
   const resultDiv = document.getElementById('ips-result');
+  const restartResultDiv = document.getElementById('restart-result');
   const debugDiv = document.getElementById('debug-info');
   const loginMamBtn = document.getElementById('login-mam-btn');
   const viewMamPageBtn = document.getElementById('view-mam-page-btn');
@@ -177,6 +181,36 @@ document.addEventListener('DOMContentLoaded', function() {
         debugDiv.style.display = 'none';
         toggleDebugBtn.textContent = 'Show Debug';
       }
+    });
+  }
+  
+  // Restart qBittorrentvpn button functionality
+  if (restartQbittorrentBtn) {
+    restartQbittorrentBtn.addEventListener('click', function() {
+      restartResultDiv.textContent = 'Restarting qBittorrent container...';
+      restartResultDiv.style.color = '#666';
+      restartQbittorrentBtn.disabled = true;
+      
+      fetch('/api/restart_qbittorrent_container', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(r => r.json()).then(data => {
+        restartQbittorrentBtn.disabled = false;
+        
+        if (data.success) {
+          restartResultDiv.innerHTML = `<span style='color:#007700'>✓ ${data.message}</span>`;
+        } else {
+          restartResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+        }
+        
+        // Show additional status updates if available
+        if (data.status_updates && data.status_updates.length > 0) {
+          restartResultDiv.innerHTML += '<br><small>' + data.status_updates.join('<br>') + '</small>';
+        }
+      }).catch(error => {
+        restartQbittorrentBtn.disabled = false;
+        restartResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+      });
     });
   }
   

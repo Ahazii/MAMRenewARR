@@ -1586,6 +1586,164 @@ def api_qbittorrent_logout():
             'debug_info': debug_info
         })
 
+@app.route('/api/restart_qbittorrent_container', methods=['POST'])
+def api_restart_qbittorrent_container():
+    """Restart the binhex-qbittorrentvpn Docker container"""
+    log_info("Restart qBittorrent Container request started")
+    status_updates = []
+    
+    try:
+        import docker
+        
+        # Get settings
+        settings = load_settings()
+        container_name = settings.get('qbittorrentvpn_container', 'binhex-qbittorrentvpn')
+        qbittorrent_url = settings.get('qbittorrent_url', '')
+        restart_delay = int(settings.get('qbittorrent_restart_delay', 120))
+        
+        log_debug(f"Container name: {container_name}")
+        log_debug(f"qBittorrent URL: {qbittorrent_url}")
+        log_debug(f"Restart delay: {restart_delay} seconds")
+        
+        if not qbittorrent_url:
+            status_updates.append("qBittorrent URL not configured")
+            return jsonify({
+                'success': False,
+                'message': 'qBittorrent URL not configured. Please set in Config page.',
+                'status_updates': status_updates
+            })
+        
+        # Ensure URL has http:// prefix
+        if not qbittorrent_url.startswith('http'):
+            qbittorrent_url = 'http://' + qbittorrent_url
+        
+        # Connect to Docker
+        status_updates.append("Connecting to Docker...")
+        log_info("Connecting to Docker daemon")
+        client = docker.from_env()
+        
+        # Get container
+        try:
+            container = client.containers.get(container_name)
+            status_updates.append(f"Found container: {container_name}")
+            log_info(f"Found container: {container_name}")
+        except docker.errors.NotFound:
+            status_updates.append(f"Container '{container_name}' not found")
+            log_info(f"Container '{container_name}' not found")
+            return jsonify({
+                'success': False,
+                'message': f"Container '{container_name}' not found",
+                'status_updates': status_updates
+            })
+        
+        # Restart container
+        status_updates.append("Restarting container...")
+        log_info(f"Restarting container {container_name}")
+        container.restart()
+        status_updates.append("Container restart command sent")
+        
+        # Monitor URL to check if container is up
+        status_updates.append(f"Monitoring {qbittorrent_url} for up to {restart_delay} seconds...")
+        log_info(f"Monitoring {qbittorrent_url} for container availability")
+        
+        start_time = time.time()
+        container_up = False
+        
+        while time.time() - start_time < restart_delay:
+            try:
+                response = requests.get(qbittorrent_url, timeout=5)
+                if response.status_code in [200, 401, 403]:  # Any of these means it's up
+                    container_up = True
+                    elapsed = int(time.time() - start_time)
+                    status_updates.append(f"Container is UP after {elapsed} seconds")
+                    log_info(f"Container became accessible after {elapsed} seconds")
+                    break
+            except requests.exceptions.RequestException:
+                pass  # Not up yet, continue waiting
+            
+            time.sleep(2)  # Wait 2 seconds between checks
+        
+        if container_up:
+            return jsonify({
+                'success': True,
+                'message': f'Successfully restarted {container_name}',
+                'status_updates': status_updates
+            })
+        else:
+            # Fallback: stop and start
+            status_updates.append(f"Container did not come up within {restart_delay} seconds")
+            status_updates.append("Attempting fallback: stop then start...")
+            log_info("Restart failed, attempting fallback stop/start")
+            
+            # Stop container
+            status_updates.append("Stopping container...")
+            log_info(f"Stopping container {container_name}")
+            container.stop()
+            status_updates.append("Container stopped")
+            
+            # Wait for restart_delay
+            status_updates.append(f"Waiting {restart_delay} seconds...")
+            log_info(f"Waiting {restart_delay} seconds before starting container")
+            time.sleep(restart_delay)
+            
+            # Start container
+            status_updates.append("Starting container...")
+            log_info(f"Starting container {container_name}")
+            container.start()
+            status_updates.append("Container start command sent")
+            
+            # Monitor again
+            status_updates.append(f"Monitoring {qbittorrent_url} for up to {restart_delay} seconds...")
+            log_info(f"Monitoring {qbittorrent_url} again after manual start")
+            
+            start_time = time.time()
+            container_up = False
+            
+            while time.time() - start_time < restart_delay:
+                try:
+                    response = requests.get(qbittorrent_url, timeout=5)
+                    if response.status_code in [200, 401, 403]:
+                        container_up = True
+                        elapsed = int(time.time() - start_time)
+                        status_updates.append(f"Container is UP after {elapsed} seconds")
+                        log_info(f"Container became accessible after {elapsed} seconds (fallback)")
+                        break
+                except requests.exceptions.RequestException:
+                    pass
+                
+                time.sleep(2)
+            
+            if container_up:
+                return jsonify({
+                    'success': True,
+                    'message': f'Successfully restarted {container_name} using fallback method',
+                    'status_updates': status_updates
+                })
+            else:
+                status_updates.append("Container failed to start even with fallback method")
+                log_info("Container failed to start with fallback method")
+                return jsonify({
+                    'success': False,
+                    'message': f'Failed to restart {container_name} - container not responding',
+                    'status_updates': status_updates
+                })
+            
+    except ImportError:
+        status_updates.append("Docker SDK not available")
+        return jsonify({
+            'success': False,
+            'message': 'Docker SDK not available. Please install docker python package.',
+            'status_updates': status_updates
+        })
+    except Exception as e:
+        status_updates.append(f"Error: {str(e)}")
+        log_info(f"Restart container error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Restart error: {str(e)}',
+            'status_updates': status_updates
+        })
+
 # Global variable to track Prowlarr browser state
 prowlarr_driver = None
 
