@@ -9,6 +9,8 @@ A Docker-based web application for automating MyAnonamouse session management wi
 - **IP Detection**: Fetches external IP and VPN container IP addresses
 - **Session Cookie Creation**: Automated session creation with timestamp tracking
 - **Old Session Cleanup**: Automated removal of expired MAM sessions
+- **Automated Timer**: Scheduled task execution with configurable intervals and jitter
+- **Timezone Support**: Proper timezone handling with automatic DST transitions
 - **Docker Ready**: Cross-platform container with production WSGI server
 - **Theme Support**: Light/Dark mode toggle with persistence
 - **Selenium Integration**: Browser automation for complex MAM interactions
@@ -26,12 +28,15 @@ docker pull ghcr.io/yourusername/mamrenewarr:latest
 # Create persistent storage
 mkdir -p /mnt/user/appdata/MAMRenewARR
 
-# Run container (with Docker socket access for Step 3)
+# Run container (with Docker socket and timezone support)
 docker run -d \
   --name mamrenewarr \
   -p 5000:5000 \
+  -e TZ=Europe/London \
+  -v /etc/localtime:/etc/localtime:ro \
   -v /mnt/user/appdata/MAMRenewARR:/app/data \
-  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /mnt/user/appdata/binhex-qbittorrentvpn/qBittorrent/data/logs:/app/shared/qbittorrent-logs:ro \
   --restart unless-stopped \
   ghcr.io/yourusername/mamrenewarr:latest
 ```
@@ -46,12 +51,15 @@ cd mamrenewarr
 # Build image
 docker build -t mamrenewarr:latest .
 
-# Run container (with Docker socket access for Step 3)
+# Run container (with Docker socket and timezone support)
 docker run -d \
   --name mamrenewarr \
   -p 5000:5000 \
+  -e TZ=Europe/London \
+  -v /etc/localtime:/etc/localtime:ro \
   -v /mnt/user/appdata/MAMRenewARR:/app/data \
-  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /mnt/user/appdata/binhex-qbittorrentvpn/qBittorrent/data/logs:/app/shared/qbittorrent-logs:ro \
   --restart unless-stopped \
   mamrenewarr:latest
 ```
@@ -76,10 +84,16 @@ Visit `http://YOUR-UNRAID-IP:5000` in your browser.
 
 ### Configuration
 
-- **Basic Mode**: Simple one-click fixes and timer scheduling
+- **Basic Mode**: Simple one-click fixes and automated timer with configurable intervals
 - **Advanced Mode**: Step-by-step session management workflow  
-- **Config Page**: Set container names, paths, credentials, and log levels
+- **Config Page**: Set container names, paths, credentials, log levels, and timer settings
 - **Settings Persistence**: Cookies, timestamps, and preferences saved automatically
+
+#### Timer Configuration
+- **Scheduled Run Time**: Set the time of day (HH:MM format) for automated tasks
+- **Jitter**: Add random variance (±minutes) to prevent predictable scheduling
+- **Run Interval**: Configure how many days between each run (1=daily, 7=weekly, etc.)
+- **Timezone Support**: Container respects local timezone with automatic DST handling
 
 ## Development Status
 
@@ -93,16 +107,22 @@ Visit `http://YOUR-UNRAID-IP:5000` in your browser.
 - ✅ Settings persistence (cookies, timestamps, log level)
 - ✅ **Step 3: qBittorrent Docker integration with curl command execution**
 - ✅ **Docker CLI integration with socket mounting**
-- 🔄 Step 4: Prowlarr integration (planned)
-- 🔄 Scheduled automation (timer-based execution)
+- ✅ **Timer-based automation with configurable intervals and jitter**
+- ✅ **Timezone support with automatic DST transitions**
+- ✅ **MAM rate limit detection and user-friendly error messages**
+- ✅ **Basic Mode: Complete workflow orchestration**
+- ✅ **Advanced Mode: Step-by-step manual control**
+- ✅ **Step 4: Prowlarr integration complete**
+- ✅ **Duplicate logging fixed**
 
 ## Requirements
 
 - Docker-enabled system (Unraid, Linux, Windows)
-- **Docker socket access** (for Step 3 container communication)
+- **Docker socket access** (for container communication)
 - Network access to qBittorrentVPN container (for log parsing)
 - Port 5000 available
-- `binhex-qbittorrentvpn` container running (for Step 3)
+- `binhex-qbittorrentvpn` container running (for qBittorrent integration)
+- Proper timezone configuration (use `-e TZ=Your/Timezone` in docker run)
 
 ## Author
 

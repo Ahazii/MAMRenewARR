@@ -1,6 +1,6 @@
 # MAMRenewARR Project Status
 
-## Current State (as of session end)
+## Current State (Latest Update)
 
 ### ✅ Completed Features
 
@@ -24,6 +24,7 @@
 - **Page Viewer**: Real browser window for MAM navigation
 - **Cookie Timestamps**: Date/time tracking for session creation
 - **Logout & Clear Functions**: MAM logout and cookie clearing capabilities
+- **Rate Limit Detection**: User-friendly error messages for MAM rate limits
 
 #### 4. IP Detection System
 - **External IP**: Public IP address detection
@@ -36,13 +37,28 @@
 - **Log Level Management**: Configurable logging with persistence
 - **Auto-loading**: Settings restored on application restart
 
-#### 6. Step 3: qBittorrent Docker Integration
+#### 6. qBittorrent & Prowlarr Integration
 - **Container Communication**: Docker exec commands to `binhex-qbittorrentvpn`
 - **Connection Management**: Container connection state tracking
 - **Curl Command Execution**: MAM dynamic seedbox API calls with session cookies
-- **Response Validation**: Parse `{"Success":true` responses for session confirmation
+- **Response Validation**: Parse MAM API responses with rate limit detection
 - **Docker CLI Integration**: Full Docker CLI available in container
 - **Socket Mounting**: Secure Docker daemon communication via socket
+- **Prowlarr Integration**: Complete Selenium-based Prowlarr cookie management
+
+#### 7. Timer & Scheduling System
+- **Configurable Timer**: Automated task scheduling with persistence
+- **Run Interval**: Configurable days between runs (daily/weekly/monthly)
+- **Jitter Support**: Random variance to prevent predictable scheduling patterns
+- **Timezone Handling**: Proper timezone support with automatic DST transitions
+- **Run History**: Track last 10 runs with success/failure status
+- **Thread Management**: Robust background worker with heartbeat logging
+
+#### 8. Logging & Debugging
+- **Dual Output**: Console and file logging with rotation
+- **Configurable Levels**: Info/Debug modes with runtime switching
+- **Duplicate Fix**: Single log entries (no more double logging)
+- **Structured Logs**: Timestamped entries with log levels
 
 ### 🔧 Technical Implementation Details
 
@@ -104,37 +120,53 @@ MAMRenewARR/
 - `POST /api/qbittorrent_login` - qBittorrent container connection
 - `POST /api/qbittorrent_send_cookie` - Send cookie via curl to qBittorrent
 - `POST /api/qbittorrent_logout` - qBittorrent container disconnect
+- `POST /api/prowlarr_login` - Prowlarr web interface login
+- `POST /api/prowlarr_send_cookie` - Send cookie to Prowlarr
+- `POST /api/prowlarr_logout` - Prowlarr logout
+- `POST /api/restart_qbittorrent_container` - Container restart with health check
+- `POST /api/fix_qbittorrent` - Orchestrated qBittorrent workflow
+- `POST /api/fix_prowlarr` - Orchestrated Prowlarr workflow
+- `POST /api/fix_all` - Complete automated workflow
+- `GET /api/timer_status` - Timer state and next run time
+- `POST /api/timer_toggle` - Enable/disable timer
 - `POST /api/save_config` - Settings persistence
 - `GET /api/load_config` - Settings retrieval
 
-### 🐛 Known Issues (Fixed)
+### 🐛 Known Issues (All Fixed)
 - ~~CSS selector bug with `[role='dialog']` causing InvalidSelectorException~~
 - ~~VPN IP detection not working for qBittorrent cookie creation~~
 - ~~Settings not persisting between application restarts~~
 - ~~Cookie timestamps not displaying in UI~~
+- ~~Duplicate log entries appearing in container logs and files~~
+- ~~Timer scheduling next run for same day instead of next interval~~
+- ~~Timezone not properly handled, causing time mismatches~~
 
 ### 🚀 Ready for Production
 The application is fully functional and ready for deployment:
 
 1. **Pull latest code**: `git pull origin main`
 2. **Build container**: `docker build -t mamrenewarr:latest .`
-3. **Deploy with Docker socket**: 
+3. **Deploy with Docker socket and timezone**: 
    ```bash
    docker run -d --name mamrenewarr -p 5000:5000 \
+     -e TZ=Europe/London \
+     -v /etc/localtime:/etc/localtime:ro \
      -v /mnt/user/appdata/MAMRenewARR:/app/data \
-     -v /var/run/docker.sock:/var/run/docker.sock:ro \
+     -v /var/run/docker.sock:/var/run/docker.sock \
      -v /mnt/user/appdata/binhex-qbittorrentvpn/qBittorrent/data/logs:/app/shared/qbittorrent-logs:ro \
      --restart unless-stopped mamrenewarr:latest
    ```
-4. **Test**: All Steps 1-3 working, Step 4 planned
+4. **Configure Timer** (optional): Set run interval, jitter, and scheduled time in Config page
+5. **Test**: All features working - Basic Mode, Advanced Mode, and Timer automation
 
-### 📝 Next Development Phase (Future)
-- **Step 4: Prowlarr Integration** - Similar Docker container communication for Prowlarr
-- **Timer-based automation** for scheduled execution of complete workflow
-- **Enhanced error reporting** and recovery mechanisms
-- **Additional torrent client integrations** beyond qBittorrent
-- **Performance optimizations** and caching
+### 📝 Future Enhancements (Optional)
+- **Enhanced error reporting** with retry logic and exponential backoff
+- **Additional torrent client integrations** (Transmission, Deluge, etc.)
+- **Performance optimizations** and response caching
 - **Unit test coverage** for critical functions
+- **Web UI improvements** with real-time status updates
+- **Multi-user support** with authentication
+- **Notification system** (email, webhook, Discord, etc.)
 
 ---
 

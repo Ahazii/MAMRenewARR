@@ -1,10 +1,13 @@
-# MAMRenewARR - Updated Deployment Instructions
+# MAMRenewARR - Deployment Instructions
 
-## Issues Fixed in This Update
+## Latest Updates
 
-1. **Configuration Persistence**: Settings now save to `/app/data/settings.json` which is properly mounted to the Unraid appdata folder
-2. **Docker Command Error**: Removed dependency on Docker CLI inside container - no more "docker command not found" errors
-3. **VPN IP Detection**: Improved VPN IP detection with multiple fallback methods
+1. **Timer Interval Configuration**: Added configurable run interval (daily, weekly, etc.)
+2. **Timezone Support**: Proper timezone handling with automatic DST transitions
+3. **Duplicate Logging Fixed**: No more double log entries
+4. **MAM Rate Limit Detection**: User-friendly error messages for rate limits
+5. **Configuration Persistence**: Settings save to `/app/data/settings.json`
+6. **VPN IP Detection**: Improved detection with multiple fallback methods
 
 ## Updated Deployment Commands
 
@@ -26,12 +29,41 @@ docker build -t mamrenewarr:latest .
 docker run -d \
   --name mamrenewarr \
   -p 5000:5000 \
+  -e TZ=Europe/London \
+  -v /etc/localtime:/etc/localtime:ro \
+  -v /var/run/docker.sock:/var/run/docker.sock \
   -v /mnt/user/appdata/MAMRenewARR:/app/data \
+  -v /mnt/user/appdata/binhex-qbittorrentvpn/qBittorrent/data/logs:/app/shared/qbittorrent-logs:ro \
   --restart unless-stopped \
   mamrenewarr:latest
 ```
 
-## Configuration Changes
+**Note**: Replace `Europe/London` with your timezone (e.g., `America/New_York`, `Asia/Tokyo`)
+
+## Important Configuration Notes
+
+### Timezone Configuration
+
+The container now supports proper timezone handling:
+- Set via `-e TZ=Your/Timezone` environment variable
+- Automatically handles DST transitions (e.g., British Summer Time)
+- Required for accurate timer scheduling
+
+**Common Timezones**:
+- UK: `Europe/London` (auto-handles BST)
+- US East: `America/New_York`
+- US West: `America/Los_Angeles`
+- Europe: `Europe/Paris`, `Europe/Berlin`
+- Asia: `Asia/Tokyo`, `Asia/Singapore`
+
+### Timer Settings (in Config page)
+
+1. **Scheduled Run Time**: When to run daily tasks (HH:MM format, 24-hour)
+2. **Jitter (minutes)**: Random variance ±N minutes to prevent predictable patterns
+3. **Run Interval (days)**: How many days between runs
+   - `1` = Run daily
+   - `7` = Run weekly
+   - `30` = Run monthly
 
 ### VPN IP Detection Options
 
