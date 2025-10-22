@@ -2307,5 +2307,341 @@ def api_prowlarr_logout():
             'debug_info': debug_info
         })
 
+# Basic Mode Orchestration Endpoints
+
+@app.route('/api/fix_myanonamouse', methods=['POST'])
+def api_fix_myanonamouse():
+    """Orchestrate Fix MyAnonamouse workflow"""
+    log_info("Fix MyAnonamouse orchestration started")
+    steps = []
+    overall_success = True
+    
+    try:
+        # Step 1: Clear Cookies
+        log_info("Step 1: Clear Cookies")
+        try:
+            response = api_clear_cookies()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Clear Cookies', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Clear Cookies: Success")
+            else:
+                steps.append({'name': 'Clear Cookies', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Clear Cookies: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Clear Cookies', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Clear Cookies error: {e}")
+            overall_success = False
+        
+        # Step 2: Restart qBittorrent Container
+        log_info("Step 2: Restart qBittorrent Container")
+        try:
+            response = api_restart_qbittorrent_container()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Restart qBittorrent', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Restart qBittorrent: Success")
+            else:
+                steps.append({'name': 'Restart qBittorrent', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Restart qBittorrent: {data['message']}")
+                overall_success = False
+                # Critical failure - stop here
+                return jsonify({
+                    'success': False,
+                    'message': 'Fix MyAnonamouse failed: Could not restart qBittorrent container',
+                    'steps': steps
+                })
+        except Exception as e:
+            steps.append({'name': 'Restart qBittorrent', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Restart qBittorrent error: {e}")
+            return jsonify({
+                'success': False,
+                'message': f'Fix MyAnonamouse failed: {str(e)}',
+                'steps': steps
+            })
+        
+        # Step 3: Wait 30 seconds
+        log_info("Step 3: Waiting 30 seconds...")
+        steps.append({'name': 'Wait 30 seconds', 'status': 'SUCCESS', 'message': 'Waiting for container to stabilize'})
+        time.sleep(30)
+        
+        # Step 4: Get IPs
+        log_info("Step 4: Get IPs")
+        try:
+            response = api_get_ips()
+            data = response.get_json()
+            if data.get('external_ip') and data.get('vpn_ip'):
+                steps.append({'name': 'Get IPs', 'status': 'SUCCESS', 'message': f"External: {data['external_ip']}, VPN: {data['vpn_ip']}"})
+                log_info(f"✓ Get IPs: External={data['external_ip']}, VPN={data['vpn_ip']}")
+            else:
+                steps.append({'name': 'Get IPs', 'status': 'FAILED', 'message': 'Could not retrieve IPs'})
+                log_info("✗ Get IPs: Failed to retrieve")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Get IPs', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Get IPs error: {e}")
+            overall_success = False
+        
+        # Step 5: Create qBittorrent Session
+        log_info("Step 5: Create qBittorrent Session")
+        try:
+            response = api_create_qbittorrent_cookie()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Create qBittorrent Session', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Create qBittorrent Session: Success")
+            else:
+                steps.append({'name': 'Create qBittorrent Session', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Create qBittorrent Session: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Create qBittorrent Session', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Create qBittorrent Session error: {e}")
+            overall_success = False
+        
+        # Step 6: Logout MAM
+        log_info("Step 6: Logout MAM")
+        try:
+            response = api_logout_mam()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Logout MAM', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Logout MAM: Success")
+            else:
+                steps.append({'name': 'Logout MAM', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Logout MAM: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Logout MAM', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Logout MAM error: {e}")
+            overall_success = False
+        
+        # Step 7: Log into qBittorrent
+        log_info("Step 7: Log into qBittorrent")
+        try:
+            response = api_qbittorrent_login()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Login qBittorrent', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Login qBittorrent: Success")
+            else:
+                steps.append({'name': 'Login qBittorrent', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Login qBittorrent: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Login qBittorrent', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Login qBittorrent error: {e}")
+            overall_success = False
+        
+        # Step 8: Send Cookie to qBittorrent
+        log_info("Step 8: Send Cookie to qBittorrent")
+        try:
+            response = api_qbittorrent_send_cookie()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Send Cookie to qBittorrent', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Send Cookie to qBittorrent: Success")
+            else:
+                steps.append({'name': 'Send Cookie to qBittorrent', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Send Cookie to qBittorrent: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Send Cookie to qBittorrent', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Send Cookie to qBittorrent error: {e}")
+            overall_success = False
+        
+        # Step 9: Logout qBittorrent
+        log_info("Step 9: Logout qBittorrent")
+        try:
+            response = api_qbittorrent_logout()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Logout qBittorrent', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Logout qBittorrent: Success")
+            else:
+                steps.append({'name': 'Logout qBittorrent', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Logout qBittorrent: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Logout qBittorrent', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Logout qBittorrent error: {e}")
+            overall_success = False
+        
+        # Final result
+        if overall_success:
+            log_info("Fix MyAnonamouse completed successfully")
+            return jsonify({
+                'success': True,
+                'message': 'Fix MyAnonamouse completed successfully',
+                'steps': steps
+            })
+        else:
+            log_info("Fix MyAnonamouse completed with some failures")
+            return jsonify({
+                'success': False,
+                'message': 'Fix MyAnonamouse completed with some failures',
+                'steps': steps
+            })
+            
+    except Exception as e:
+        log_info(f"Fix MyAnonamouse orchestration error: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Orchestration error: {str(e)}',
+            'steps': steps
+        })
+
+@app.route('/api/fix_prowlarr', methods=['POST'])
+def api_fix_prowlarr():
+    """Orchestrate Fix Prowlarr workflow"""
+    log_info("Fix Prowlarr orchestration started")
+    steps = []
+    overall_success = True
+    
+    try:
+        # Step 1: Clear Cookies
+        log_info("Step 1: Clear Cookies")
+        try:
+            response = api_clear_cookies()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Clear Cookies', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Clear Cookies: Success")
+            else:
+                steps.append({'name': 'Clear Cookies', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Clear Cookies: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Clear Cookies', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Clear Cookies error: {e}")
+            overall_success = False
+        
+        # Step 2: Get IPs
+        log_info("Step 2: Get IPs")
+        try:
+            response = api_get_ips()
+            data = response.get_json()
+            if data.get('external_ip') and data.get('vpn_ip'):
+                steps.append({'name': 'Get IPs', 'status': 'SUCCESS', 'message': f"External: {data['external_ip']}, VPN: {data['vpn_ip']}"})
+                log_info(f"✓ Get IPs: External={data['external_ip']}, VPN={data['vpn_ip']}")
+            else:
+                steps.append({'name': 'Get IPs', 'status': 'FAILED', 'message': 'Could not retrieve IPs'})
+                log_info("✗ Get IPs: Failed to retrieve")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Get IPs', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Get IPs error: {e}")
+            overall_success = False
+        
+        # Step 3: Create Prowlarr Session
+        log_info("Step 3: Create Prowlarr Session")
+        try:
+            response = api_create_prowlarr_cookie()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Create Prowlarr Session', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Create Prowlarr Session: Success")
+            else:
+                steps.append({'name': 'Create Prowlarr Session', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Create Prowlarr Session: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Create Prowlarr Session', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Create Prowlarr Session error: {e}")
+            overall_success = False
+        
+        # Step 4: Logout MAM
+        log_info("Step 4: Logout MAM")
+        try:
+            response = api_logout_mam()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Logout MAM', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Logout MAM: Success")
+            else:
+                steps.append({'name': 'Logout MAM', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Logout MAM: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Logout MAM', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Logout MAM error: {e}")
+            overall_success = False
+        
+        # Step 5: Log into Prowlarr
+        log_info("Step 5: Log into Prowlarr")
+        try:
+            response = api_prowlarr_login()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Login Prowlarr', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Login Prowlarr: Success")
+            else:
+                steps.append({'name': 'Login Prowlarr', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Login Prowlarr: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Login Prowlarr', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Login Prowlarr error: {e}")
+            overall_success = False
+        
+        # Step 6: Send Cookie to Prowlarr
+        log_info("Step 6: Send Cookie to Prowlarr")
+        try:
+            response = api_prowlarr_send_cookie()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Send Cookie to Prowlarr', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Send Cookie to Prowlarr: Success")
+            else:
+                steps.append({'name': 'Send Cookie to Prowlarr', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Send Cookie to Prowlarr: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Send Cookie to Prowlarr', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Send Cookie to Prowlarr error: {e}")
+            overall_success = False
+        
+        # Step 7: Logout Prowlarr
+        log_info("Step 7: Logout Prowlarr")
+        try:
+            response = api_prowlarr_logout()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Logout Prowlarr', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Logout Prowlarr: Success")
+            else:
+                steps.append({'name': 'Logout Prowlarr', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Logout Prowlarr: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Logout Prowlarr', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Logout Prowlarr error: {e}")
+            overall_success = False
+        
+        # Final result
+        if overall_success:
+            log_info("Fix Prowlarr completed successfully")
+            return jsonify({
+                'success': True,
+                'message': 'Fix Prowlarr completed successfully',
+                'steps': steps
+            })
+        else:
+            log_info("Fix Prowlarr completed with some failures")
+            return jsonify({
+                'success': False,
+                'message': 'Fix Prowlarr completed with some failures',
+                'steps': steps
+            })
+            
+    except Exception as e:
+        log_info(f"Fix Prowlarr orchestration error: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Orchestration error: {str(e)}',
+            'steps': steps
+        })
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

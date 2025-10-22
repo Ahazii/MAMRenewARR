@@ -3,18 +3,255 @@
 <h2>Basic Mode</h2>
 <div class="box">
   <div class="button-row">
-    <button title="Run all fixes">Fix All</button>
-    <button title="Fix MyAnonamouse">Fix MyAnonamouse</button>
-    <button title="Fix Prowlarr">Fix Prowlarr</button>
-    <button title="Run on Timer">Run on Timer</button>
+    <button id="fix-all-btn" title="Run all fixes">Fix All</button>
+    <button id="fix-myanonamouse-btn" title="Fix MyAnonamouse">Fix MyAnonamouse</button>
+    <button id="fix-prowlarr-btn" title="Fix Prowlarr">Fix Prowlarr</button>
   </div>
+  <div id="status-message" style="margin-top:1em;font-weight:600;"></div>
+  <div id="progress-log" style="margin-top:0.5em;font-size:0.9em;color:#666;background:#f5f5f5;padding:0.5em;border-radius:4px;white-space:pre-line;max-height:300px;overflow-y:auto;display:none;"></div>
+</div>
+
+<div class="box">
+  <h3>Automated Timer</h3>
   <div style="margin-bottom:1em;">
-    <label for="timer">Select Time (24h):</label>
-    <input type="time" id="timer" name="timer">
+    <label for="timer-toggle" style="font-weight:600;margin-right:1em;">Timer Status:</label>
+    <button id="timer-toggle" style="padding:0.5em 1em;font-weight:bold;" title="Click to start/stop automated timer">TIMER OFF</button>
   </div>
-  <div>
-    <label for="random-minutes">Random Minutes:</label>
-    <input type="number" id="random-minutes" name="random-minutes" min="0" max="60">
+  <div id="timer-info" style="margin-top:1em;">
+    <div style="margin-bottom:0.5em;"><strong>Next Run:</strong> <span id="next-run-time">Not scheduled</span></div>
+    <div style="margin-bottom:0.5em;"><strong>Last Run:</strong> <span id="last-run-time">Never</span></div>
+  </div>
+  <div style="margin-top:1.5em;">
+    <h4>Run History (Last 10 runs):</h4>
+    <div id="run-history" style="font-size:0.9em;background:#f9f9f9;padding:0.5em;border-radius:4px;max-height:200px;overflow-y:auto;">
+      <em>No runs yet</em>
+    </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const fixAllBtn = document.getElementById('fix-all-btn');
+  const fixMamBtn = document.getElementById('fix-myanonamouse-btn');
+  const fixProwlarrBtn = document.getElementById('fix-prowlarr-btn');
+  const timerToggleBtn = document.getElementById('timer-toggle');
+  const statusMessage = document.getElementById('status-message');
+  const progressLog = document.getElementById('progress-log');
+  const nextRunTime = document.getElementById('next-run-time');
+  const lastRunTime = document.getElementById('last-run-time');
+  const runHistory = document.getElementById('run-history');
+  
+  let timerActive = false;
+  let statusCheckInterval = null;
+  
+  // Helper function to update status display
+  function updateStatus(message, isError = false) {
+    statusMessage.innerHTML = isError ? 
+      `<span style='color:#bb0000'>✗ ${message}</span>` : 
+      `<span style='color:#007700'>✓ ${message}</span>`;
+  }
+  
+  // Helper function to append to progress log
+  function appendProgress(message) {
+    progressLog.style.display = 'block';
+    progressLog.textContent += message + '\n';
+    progressLog.scrollTop = progressLog.scrollHeight;
+  }
+  
+  // Helper function to clear progress log
+  function clearProgress() {
+    progressLog.textContent = '';
+    progressLog.style.display = 'none';
+  }
+  
+  // Load timer status
+  function loadTimerStatus() {
+    fetch('/api/timer_status')
+      .then(r => r.json())
+      .then(data => {
+        if (data.active) {
+          timerActive = true;
+          timerToggleBtn.textContent = 'TIMER ON';
+          timerToggleBtn.style.backgroundColor = '#28a745';
+          timerToggleBtn.style.color = '#fff';
+        } else {
+          timerActive = false;
+          timerToggleBtn.textContent = 'TIMER OFF';
+          timerToggleBtn.style.backgroundColor = '#6c757d';
+          timerToggleBtn.style.color = '#fff';
+        }
+        
+        nextRunTime.textContent = data.next_run || 'Not scheduled';
+        lastRunTime.textContent = data.last_run || 'Never';
+        
+        // Update run history
+        if (data.history && data.history.length > 0) {
+          let historyHtml = '';
+          data.history.forEach(entry => {
+            const statusColor = entry.status === 'Success' ? '#007700' : (entry.status === 'Partial' ? '#ff8800' : '#bb0000');
+            historyHtml += `<div style='margin-bottom:0.3em;border-bottom:1px solid #ddd;padding-bottom:0.3em;'>`;
+            historyHtml += `<strong>${entry.timestamp}</strong> - <span style='color:${statusColor}'>${entry.status}</span>`;
+            if (entry.details) {
+              historyHtml += `<br><small>${entry.details}</small>`;
+            }
+            historyHtml += `</div>`;
+          });
+          runHistory.innerHTML = historyHtml;
+        } else {
+          runHistory.innerHTML = '<em>No runs yet</em>';
+        }
+      })
+      .catch(error => {
+        console.log('Could not load timer status:', error);
+      });
+  }
+  
+  // Load timer status on page load
+  loadTimerStatus();
+  
+  // Refresh timer status every 10 seconds
+  setInterval(loadTimerStatus, 10000);
+  
+  // Fix All button
+  if (fixAllBtn) {
+    fixAllBtn.addEventListener('click', function() {
+      clearProgress();
+      updateStatus('Running Fix All... This may take a while...');
+      fixAllBtn.disabled = true;
+      fixMamBtn.disabled = true;
+      fixProwlarrBtn.disabled = true;
+      
+      appendProgress('Starting Fix All operation...');
+      
+      fetch('/api/fix_all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(r => r.json()).then(data => {
+        fixAllBtn.disabled = false;
+        fixMamBtn.disabled = false;
+        fixProwlarrBtn.disabled = false;
+        
+        if (data.success) {
+          updateStatus(data.message);
+        } else {
+          updateStatus(data.message, true);
+        }
+        
+        if (data.steps && data.steps.length > 0) {
+          data.steps.forEach(step => {
+            appendProgress(`[${step.status}] ${step.name}: ${step.message}`);
+          });
+        }
+        
+        // Refresh timer status to update history
+        loadTimerStatus();
+      }).catch(error => {
+        fixAllBtn.disabled = false;
+        fixMamBtn.disabled = false;
+        fixProwlarrBtn.disabled = false;
+        updateStatus('Network error: ' + error.message, true);
+      });
+    });
+  }
+  
+  // Fix MyAnonamouse button
+  if (fixMamBtn) {
+    fixMamBtn.addEventListener('click', function() {
+      clearProgress();
+      updateStatus('Running Fix MyAnonamouse...');
+      fixAllBtn.disabled = true;
+      fixMamBtn.disabled = true;
+      fixProwlarrBtn.disabled = true;
+      
+      appendProgress('Starting Fix MyAnonamouse operation...');
+      
+      fetch('/api/fix_myanonamouse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(r => r.json()).then(data => {
+        fixAllBtn.disabled = false;
+        fixMamBtn.disabled = false;
+        fixProwlarrBtn.disabled = false;
+        
+        if (data.success) {
+          updateStatus(data.message);
+        } else {
+          updateStatus(data.message, true);
+        }
+        
+        if (data.steps && data.steps.length > 0) {
+          data.steps.forEach(step => {
+            appendProgress(`[${step.status}] ${step.name}: ${step.message}`);
+          });
+        }
+      }).catch(error => {
+        fixAllBtn.disabled = false;
+        fixMamBtn.disabled = false;
+        fixProwlarrBtn.disabled = false;
+        updateStatus('Network error: ' + error.message, true);
+      });
+    });
+  }
+  
+  // Fix Prowlarr button
+  if (fixProwlarrBtn) {
+    fixProwlarrBtn.addEventListener('click', function() {
+      clearProgress();
+      updateStatus('Running Fix Prowlarr...');
+      fixAllBtn.disabled = true;
+      fixMamBtn.disabled = true;
+      fixProwlarrBtn.disabled = true;
+      
+      appendProgress('Starting Fix Prowlarr operation...');
+      
+      fetch('/api/fix_prowlarr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(r => r.json()).then(data => {
+        fixAllBtn.disabled = false;
+        fixMamBtn.disabled = false;
+        fixProwlarrBtn.disabled = false;
+        
+        if (data.success) {
+          updateStatus(data.message);
+        } else {
+          updateStatus(data.message, true);
+        }
+        
+        if (data.steps && data.steps.length > 0) {
+          data.steps.forEach(step => {
+            appendProgress(`[${step.status}] ${step.name}: ${step.message}`);
+          });
+        }
+      }).catch(error => {
+        fixAllBtn.disabled = false;
+        fixMamBtn.disabled = false;
+        fixProwlarrBtn.disabled = false;
+        updateStatus('Network error: ' + error.message, true);
+      });
+    });
+  }
+  
+  // Timer toggle button
+  if (timerToggleBtn) {
+    timerToggleBtn.addEventListener('click', function() {
+      const newState = !timerActive;
+      
+      fetch('/api/timer_toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: newState })
+      }).then(r => r.json()).then(data => {
+        if (data.success) {
+          loadTimerStatus();
+        } else {
+          alert('Failed to toggle timer: ' + data.message);
+        }
+      }).catch(error => {
+        alert('Network error: ' + error.message);
+      });
+    });
+  }
+});
+</script>
 {% endblock %}
