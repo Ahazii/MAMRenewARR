@@ -3039,13 +3039,16 @@ def calculate_next_run_time():
 
 def timer_worker():
     """Background thread for timer"""
-    log_info("Timer worker thread started")
+    import threading
+    thread_id = threading.current_thread().name
+    log_info(f"Timer worker thread started (ID: {thread_id})")
     
+    check_count = 0
     while True:
         try:
             with timer_lock:
                 if not timer_state['active']:
-                    log_debug("Timer inactive, stopping worker thread")
+                    log_info(f"Timer inactive, stopping worker thread (ID: {thread_id})")
                     break
                 
                 next_run = timer_state.get('next_run')
@@ -3055,8 +3058,14 @@ def timer_worker():
                 now = datetime.now()
                 next_run_dt = datetime.strptime(next_run, '%Y-%m-%d %H:%M:%S')
                 
+                # Log periodic heartbeat (every 10 checks = 5 minutes)
+                check_count += 1
+                if check_count % 10 == 0:
+                    time_until = (next_run_dt - now).total_seconds() / 60
+                    log_debug(f"Timer worker alive (ID: {thread_id}): {time_until:.1f} minutes until next run")
+                
                 if now >= next_run_dt:
-                    log_info("Timer triggered - running Fix All")
+                    log_info(f"Timer triggered - running Fix All (ID: {thread_id})")
                     
                     # Run Fix All
                     with app.test_request_context():
@@ -3064,6 +3073,8 @@ def timer_worker():
                             api_fix_all()
                         except Exception as e:
                             log_info(f"Timer execution error: {e}")
+                            import traceback
+                            log_debug(f"Timer execution traceback: {traceback.format_exc()}")
                     
                     # Calculate next run time
                     next_run_dt = calculate_next_run_time()
@@ -3071,15 +3082,18 @@ def timer_worker():
                         timer_state['next_run'] = next_run_dt.strftime('%Y-%m-%d %H:%M:%S')
                     
                     log_info(f"Next run scheduled: {timer_state['next_run']}")
+                    check_count = 0  # Reset counter after run
             
             # Check every 30 seconds
             time.sleep(30)
             
         except Exception as e:
-            log_info(f"Timer worker error: {e}")
+            log_info(f"Timer worker error (ID: {thread_id}): {e}")
+            import traceback
+            log_debug(f"Timer worker traceback: {traceback.format_exc()}")
             time.sleep(30)
     
-    log_info("Timer worker thread stopped")
+    log_info(f"Timer worker thread stopped (ID: {thread_id})")
 
 @app.route('/api/timer_status', methods=['GET'])
 def api_timer_status():
@@ -3111,15 +3125,23 @@ def api_timer_toggle():
             timer_state['next_run'] = next_run_dt.strftime('%Y-%m-%d %H:%M:%S')
             log_info(f"Timer activated - next run: {timer_state['next_run']}")
             
-            # Start timer thread
-            if timer_thread is None or not timer_thread.is_alive():
+            # Check thread status
+            thread_alive = timer_thread is not None and timer_thread.is_alive()
+            log_debug(f"Current thread status - exists: {timer_thread is not None}, alive: {thread_alive}")
+            
+            # Start timer thread if needed
+            if not thread_alive:
                 import threading
-                timer_thread = threading.Thread(target=timer_worker, daemon=True)
+                timer_thread = threading.Thread(target=timer_worker, daemon=True, name="TimerWorker")
                 timer_thread.start()
-                log_info("Timer worker thread started")
+                log_info(f"New timer worker thread started (ID: {timer_thread.name})")
+            else:
+                log_info(f"Timer worker thread already running (ID: {timer_thread.name})")
         else:
             timer_state['next_run'] = None
             log_info("Timer deactivated")
+            if timer_thread and timer_thread.is_alive():
+                log_info(f"Timer worker thread will stop on next check (ID: {timer_thread.name})")
     
     return jsonify({
         'success': True,
