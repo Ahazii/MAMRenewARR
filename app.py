@@ -1608,12 +1608,16 @@ def api_prowlarr_login():
         
         # Get Prowlarr settings
         settings = load_settings()
+        log_debug(f"All settings keys: {list(settings.keys())}")
         prowlarr_url = settings.get('prowlarr_url', '')
         prowlarr_username = settings.get('prowlarr_username', '')
         prowlarr_password = settings.get('prowlarr_password', '')
+        debug_info.append(f"Loaded prowlarr_url from settings: '{prowlarr_url}'")
+        log_debug(f"prowlarr_url value: '{prowlarr_url}'")
         
         if not prowlarr_url:
             debug_info.append("Prowlarr URL not configured")
+            debug_info.append(f"Settings keys available: {list(settings.keys())}")
             return jsonify({
                 'success': False,
                 'message': 'Prowlarr URL not configured. Please set in Config page.',
