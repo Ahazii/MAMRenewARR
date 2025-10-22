@@ -8,20 +8,44 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import atexit
 import logging
+from logging.handlers import RotatingFileHandler
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 SETTINGS_FILE = os.path.join('/app/data', 'settings.json')
+LOG_FILE = os.path.join('/app/data', 'mamrenewarr.log')
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()  # This goes to container logs
-    ]
-)
+# Ensure data directory exists
+os.makedirs('/app/data', exist_ok=True)
+
+# Configure logging with both console and file handlers
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Console handler (for Docker logs)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(console_formatter)
+
+# File handler (rotating, keeps last 5 files of 10MB each)
+file_handler = RotatingFileHandler(
+    LOG_FILE,
+    maxBytes=10*1024*1024,  # 10MB
+    backupCount=5
+)
+file_handler.setLevel(logging.INFO)
+file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(file_formatter)
+
+# Add both handlers to logger
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
+
+# Also configure root logger for other libraries
+logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().addHandler(console_handler)
+logging.getLogger().addHandler(file_handler)
 
 def load_settings():
     # Ensure data directory exists
@@ -38,18 +62,34 @@ def save_settings(data):
     update_log_level()
 
 def update_log_level():
-    """Update logging level based on settings"""
+    """Update logging level based on settings for both console and file handlers"""
     settings = load_settings()
     log_level = settings.get('loglevel', 'Info')
     
     if log_level.lower() == 'debug':
-        logger.setLevel(logging.DEBUG)
-        logging.getLogger().setLevel(logging.DEBUG)
-        logger.debug("Log level set to DEBUG")
+        new_level = logging.DEBUG
+        logger.setLevel(new_level)
+        logging.getLogger().setLevel(new_level)
+        
+        # Update both console and file handlers
+        for handler in logger.handlers:
+            handler.setLevel(new_level)
+        for handler in logging.getLogger().handlers:
+            handler.setLevel(new_level)
+        
+        logger.debug("Log level set to DEBUG (both console and file)")
     else:
-        logger.setLevel(logging.INFO)
-        logging.getLogger().setLevel(logging.INFO)
-        logger.info("Log level set to INFO")
+        new_level = logging.INFO
+        logger.setLevel(new_level)
+        logging.getLogger().setLevel(new_level)
+        
+        # Update both console and file handlers
+        for handler in logger.handlers:
+            handler.setLevel(new_level)
+        for handler in logging.getLogger().handlers:
+            handler.setLevel(new_level)
+        
+        logger.info("Log level set to INFO (both console and file)")
 
 def log_info(message):
     """Log info level message"""
