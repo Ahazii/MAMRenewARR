@@ -2643,5 +2643,428 @@ def api_fix_prowlarr():
             'steps': steps
         })
 
+@app.route('/api/fix_all', methods=['POST'])
+def api_fix_all():
+    """Orchestrate Fix All workflow"""
+    log_info("Fix All orchestration started")
+    steps = []
+    overall_success = True
+    
+    try:
+        # Step 1: Clear Cookies
+        log_info("Step 1: Clear Cookies")
+        try:
+            response = api_clear_cookies()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Clear Cookies', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Clear Cookies: Success")
+            else:
+                steps.append({'name': 'Clear Cookies', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Clear Cookies: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Clear Cookies', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Clear Cookies error: {e}")
+            overall_success = False
+        
+        # Step 2: Restart qBittorrent Container
+        log_info("Step 2: Restart qBittorrent Container")
+        try:
+            response = api_restart_qbittorrent_container()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Restart qBittorrent', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Restart qBittorrent: Success")
+            else:
+                steps.append({'name': 'Restart qBittorrent', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Restart qBittorrent: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Restart qBittorrent', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Restart qBittorrent error: {e}")
+            overall_success = False
+        
+        # Step 3: Wait 30 seconds
+        log_info("Step 3: Waiting 30 seconds...")
+        steps.append({'name': 'Wait 30 seconds', 'status': 'SUCCESS', 'message': 'Waiting for container to stabilize'})
+        time.sleep(30)
+        
+        # Step 4: Get IPs
+        log_info("Step 4: Get IPs")
+        try:
+            response = api_get_ips()
+            data = response.get_json()
+            if data.get('external_ip') and data.get('vpn_ip'):
+                steps.append({'name': 'Get IPs', 'status': 'SUCCESS', 'message': f"External: {data['external_ip']}, VPN: {data['vpn_ip']}"})
+                log_info(f"✓ Get IPs: External={data['external_ip']}, VPN={data['vpn_ip']}")
+            else:
+                steps.append({'name': 'Get IPs', 'status': 'FAILED', 'message': 'Could not retrieve IPs'})
+                log_info("✗ Get IPs: Failed to retrieve")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Get IPs', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Get IPs error: {e}")
+            overall_success = False
+        
+        # Step 5: Delete old sessions
+        log_info("Step 5: Delete old sessions")
+        try:
+            response = api_delete_old_sessions()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Delete Old Sessions', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Delete Old Sessions: Success")
+            else:
+                steps.append({'name': 'Delete Old Sessions', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Delete Old Sessions: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Delete Old Sessions', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Delete Old Sessions error: {e}")
+            overall_success = False
+        
+        # Step 6: Create qBittorrent Session
+        log_info("Step 6: Create qBittorrent Session")
+        try:
+            response = api_create_qbittorrent_cookie()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Create qBittorrent Session', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Create qBittorrent Session: Success")
+            else:
+                steps.append({'name': 'Create qBittorrent Session', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Create qBittorrent Session: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Create qBittorrent Session', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Create qBittorrent Session error: {e}")
+            overall_success = False
+        
+        # Step 7: Create Prowlarr Session
+        log_info("Step 7: Create Prowlarr Session")
+        try:
+            response = api_create_prowlarr_cookie()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Create Prowlarr Session', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Create Prowlarr Session: Success")
+            else:
+                steps.append({'name': 'Create Prowlarr Session', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Create Prowlarr Session: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Create Prowlarr Session', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Create Prowlarr Session error: {e}")
+            overall_success = False
+        
+        # Step 8: Logout MAM
+        log_info("Step 8: Logout MAM")
+        try:
+            response = api_logout_mam()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Logout MAM', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Logout MAM: Success")
+            else:
+                steps.append({'name': 'Logout MAM', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Logout MAM: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Logout MAM', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Logout MAM error: {e}")
+            overall_success = False
+        
+        # Step 9: Log into qBittorrent
+        log_info("Step 9: Log into qBittorrent")
+        try:
+            response = api_qbittorrent_login()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Login qBittorrent', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Login qBittorrent: Success")
+            else:
+                steps.append({'name': 'Login qBittorrent', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Login qBittorrent: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Login qBittorrent', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Login qBittorrent error: {e}")
+            overall_success = False
+        
+        # Step 10: Send Cookie to qBittorrent
+        log_info("Step 10: Send Cookie to qBittorrent")
+        try:
+            response = api_qbittorrent_send_cookie()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Send Cookie to qBittorrent', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Send Cookie to qBittorrent: Success")
+            else:
+                steps.append({'name': 'Send Cookie to qBittorrent', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Send Cookie to qBittorrent: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Send Cookie to qBittorrent', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Send Cookie to qBittorrent error: {e}")
+            overall_success = False
+        
+        # Step 11: Logout qBittorrent
+        log_info("Step 11: Logout qBittorrent")
+        try:
+            response = api_qbittorrent_logout()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Logout qBittorrent', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Logout qBittorrent: Success")
+            else:
+                steps.append({'name': 'Logout qBittorrent', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Logout qBittorrent: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Logout qBittorrent', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Logout qBittorrent error: {e}")
+            overall_success = False
+        
+        # Step 12: Log into Prowlarr
+        log_info("Step 12: Log into Prowlarr")
+        try:
+            response = api_prowlarr_login()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Login Prowlarr', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Login Prowlarr: Success")
+            else:
+                steps.append({'name': 'Login Prowlarr', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Login Prowlarr: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Login Prowlarr', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Login Prowlarr error: {e}")
+            overall_success = False
+        
+        # Step 13: Send Cookie to Prowlarr
+        log_info("Step 13: Send Cookie to Prowlarr")
+        try:
+            response = api_prowlarr_send_cookie()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Send Cookie to Prowlarr', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Send Cookie to Prowlarr: Success")
+            else:
+                steps.append({'name': 'Send Cookie to Prowlarr', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Send Cookie to Prowlarr: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Send Cookie to Prowlarr', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Send Cookie to Prowlarr error: {e}")
+            overall_success = False
+        
+        # Step 14: Logout Prowlarr
+        log_info("Step 14: Logout Prowlarr")
+        try:
+            response = api_prowlarr_logout()
+            data = response.get_json()
+            if data['success']:
+                steps.append({'name': 'Logout Prowlarr', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Logout Prowlarr: Success")
+            else:
+                steps.append({'name': 'Logout Prowlarr', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Logout Prowlarr: {data['message']}")
+                overall_success = False
+        except Exception as e:
+            steps.append({'name': 'Logout Prowlarr', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Logout Prowlarr error: {e}")
+            overall_success = False
+        
+        # Save to history
+        save_run_to_history(overall_success, steps)
+        
+        # Final result
+        if overall_success:
+            log_info("Fix All completed successfully")
+            return jsonify({
+                'success': True,
+                'message': 'Fix All completed successfully',
+                'steps': steps
+            })
+        else:
+            log_info("Fix All completed with some failures")
+            return jsonify({
+                'success': False,
+                'message': 'Fix All completed with some failures',
+                'steps': steps
+            })
+            
+    except Exception as e:
+        log_info(f"Fix All orchestration error: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Orchestration error: {str(e)}',
+            'steps': steps
+        })
+
+# Timer state management
+timer_state = {
+    'active': False,
+    'next_run': None,
+    'last_run': None,
+    'history': []  # List of last 10 runs
+}
+timer_thread = None
+timer_lock = __import__('threading').Lock()
+
+def save_run_to_history(success, steps):
+    """Save run result to history"""
+    from datetime import datetime
+    
+    with timer_lock:
+        # Determine status
+        if success:
+            status = 'Success'
+        else:
+            failed_steps = [s for s in steps if s['status'] in ['FAILED', 'ERROR']]
+            if failed_steps:
+                status = 'Partial'
+            else:
+                status = 'Failed'
+        
+        # Create history entry
+        entry = {
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'status': status,
+            'details': f"{len([s for s in steps if s['status'] == 'SUCCESS'])}/{len(steps)} steps succeeded"
+        }
+        
+        # Add to history (keep last 10)
+        timer_state['history'].insert(0, entry)
+        if len(timer_state['history']) > 10:
+            timer_state['history'] = timer_state['history'][:10]
+        
+        # Update last run time
+        timer_state['last_run'] = entry['timestamp']
+        
+        log_info(f"Run saved to history: {status} - {entry['details']}")
+
+def calculate_next_run_time():
+    """Calculate next run time with jitter"""
+    from datetime import datetime, timedelta
+    import random
+    
+    settings = load_settings()
+    scheduled_time = settings.get('scheduled_run_time', '02:00')
+    jitter_minutes = int(settings.get('jitter_minutes', 10))
+    
+    log_debug(f"Calculating next run time: scheduled={scheduled_time}, jitter=±{jitter_minutes}")
+    
+    # Parse scheduled time
+    hour, minute = map(int, scheduled_time.split(':'))
+    
+    # Get tomorrow's date at scheduled time
+    now = datetime.now()
+    next_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    
+    # If scheduled time already passed today, use tomorrow
+    if next_run <= now:
+        next_run = next_run + timedelta(days=1)
+    
+    # Add random jitter
+    jitter_offset = random.randint(-jitter_minutes, jitter_minutes)
+    next_run = next_run + timedelta(minutes=jitter_offset)
+    
+    log_info(f"Next run scheduled for: {next_run.strftime('%Y-%m-%d %H:%M:%S')} (jitter: {jitter_offset:+d} minutes)")
+    
+    return next_run
+
+def timer_worker():
+    """Background thread for timer"""
+    log_info("Timer worker thread started")
+    
+    while True:
+        try:
+            with timer_lock:
+                if not timer_state['active']:
+                    log_debug("Timer inactive, stopping worker thread")
+                    break
+                
+                next_run = timer_state.get('next_run')
+            
+            if next_run:
+                from datetime import datetime
+                now = datetime.now()
+                next_run_dt = datetime.strptime(next_run, '%Y-%m-%d %H:%M:%S')
+                
+                if now >= next_run_dt:
+                    log_info("Timer triggered - running Fix All")
+                    
+                    # Run Fix All
+                    with app.test_request_context():
+                        try:
+                            api_fix_all()
+                        except Exception as e:
+                            log_info(f"Timer execution error: {e}")
+                    
+                    # Calculate next run time
+                    next_run_dt = calculate_next_run_time()
+                    with timer_lock:
+                        timer_state['next_run'] = next_run_dt.strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    log_info(f"Next run scheduled: {timer_state['next_run']}")
+            
+            # Check every 30 seconds
+            time.sleep(30)
+            
+        except Exception as e:
+            log_info(f"Timer worker error: {e}")
+            time.sleep(30)
+    
+    log_info("Timer worker thread stopped")
+
+@app.route('/api/timer_status', methods=['GET'])
+def api_timer_status():
+    """Get timer status"""
+    with timer_lock:
+        return jsonify({
+            'active': timer_state['active'],
+            'next_run': timer_state.get('next_run'),
+            'last_run': timer_state.get('last_run'),
+            'history': timer_state.get('history', [])
+        })
+
+@app.route('/api/timer_toggle', methods=['POST'])
+def api_timer_toggle():
+    """Toggle timer on/off"""
+    global timer_thread
+    
+    data = request.json
+    new_state = data.get('active', False)
+    
+    log_info(f"Timer toggle requested: {new_state}")
+    
+    with timer_lock:
+        timer_state['active'] = new_state
+        
+        if new_state:
+            # Calculate next run time
+            next_run_dt = calculate_next_run_time()
+            timer_state['next_run'] = next_run_dt.strftime('%Y-%m-%d %H:%M:%S')
+            log_info(f"Timer activated - next run: {timer_state['next_run']}")
+            
+            # Start timer thread
+            if timer_thread is None or not timer_thread.is_alive():
+                import threading
+                timer_thread = threading.Thread(target=timer_worker, daemon=True)
+                timer_thread.start()
+                log_info("Timer worker thread started")
+        else:
+            timer_state['next_run'] = None
+            log_info("Timer deactivated")
+    
+    return jsonify({
+        'success': True,
+        'message': f"Timer {'activated' if new_state else 'deactivated'}",
+        'next_run': timer_state.get('next_run')
+    })
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
