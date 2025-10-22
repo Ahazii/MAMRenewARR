@@ -1533,20 +1533,25 @@ def api_qbittorrent_send_cookie():
                 response_text = result.stdout.strip()
                 debug_info.append(f"Full response: {response_text}")
                 
-                # Look for the success indicator
-                if '{"Success":true' in response_text:
+                # Extract JSON from response
+                json_start = response_text.find('{')
+                json_data = None
+                if json_start != -1:
+                    json_part = response_text[json_start:]
+                    # Find the end of JSON
+                    json_end = json_part.find('}') + 1
+                    if json_end > 0:
+                        clean_json = json_part[:json_end]
+                        debug_info.append(f"Extracted JSON: {clean_json}")
+                        try:
+                            json_data = json.loads(clean_json)
+                        except json.JSONDecodeError:
+                            debug_info.append("Failed to parse JSON response")
+                
+                # Check for success
+                if '{"Success":true' in response_text or (json_data and json_data.get('Success') == True):
                     debug_info.append('SUCCESS: Found {"Success":true in response')
                     log_info("✓ Successfully secured qBittorrent session with MAM")
-                    
-                    # Extract just the JSON part if there's extra output
-                    json_start = response_text.find('{')
-                    if json_start != -1:
-                        json_part = response_text[json_start:]
-                        # Find the end of JSON (before any shell prompt)
-                        json_end = json_part.find('}') + 1
-                        if json_end > 0:
-                            clean_json = json_part[:json_end]
-                            debug_info.append(f"Extracted JSON: {clean_json}")
                     
                     return jsonify({
                         'success': True,
@@ -1554,12 +1559,28 @@ def api_qbittorrent_send_cookie():
                         'response': response_text,
                         'debug_info': debug_info
                     })
+                # Check for rate limit message
+                elif 'Last change too recent' in response_text or (json_data and json_data.get('msg') == 'Last change too recent'):
+                    debug_info.append('RATE LIMIT: MAM reports last change too recent')
+                    log_info(f"MAM rate limit hit: {response_text}")
+                    return jsonify({
+                        'success': False,
+                        'message': 'MAM rate limit: Last change too recent. Please wait before trying again.',
+                        'response': response_text,
+                        'debug_info': debug_info
+                    })
                 else:
                     debug_info.append('FAILURE: Did not find {"Success":true in response')
                     log_info(f"qBittorrent session setup failed - unexpected response: {response_text}")
+                    
+                    # Try to extract error message from JSON
+                    error_msg = 'Session setup failed - unexpected response from MAM'
+                    if json_data and json_data.get('msg'):
+                        error_msg = f"MAM error: {json_data.get('msg')}"
+                    
                     return jsonify({
                         'success': False,
-                        'message': 'Session setup failed - unexpected response from MAM',
+                        'message': error_msg,
                         'response': response_text,
                         'debug_info': debug_info
                     })
