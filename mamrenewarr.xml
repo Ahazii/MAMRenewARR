@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>MAMRenewARR</Name>
-  <Repository>ghcr.io/ahazii/mamrenewarr:latest</Repository>
+  <Repository>ghcr.io/ahazii/mamrenewarr:main</Repository>
   <Registry>https://ghcr.io</Registry>
   <Network>bridge</Network>
   <MyIP/>
