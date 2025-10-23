@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
+<div class="theme-toggle-bar">
+  <label for="theme-toggle">Light/Dark Mode:</label>
+  <button id="theme-toggle" title="Toggle light/dark mode">🌞/🌜</button>
+</div>
 <h2>Advanced Mode</h2>
 <div class="box">
   <h3>Step 1</h3>
@@ -10,7 +14,7 @@
   </div>
   <div id="ips-result" style="margin-top:1em;font-weight:600;"></div>
   <div id="restart-result" style="margin-top:1em;font-weight:600;"></div>
-  <div id="debug-info" style="margin-top:1em;font-size:0.8em;color:#666;background:#f5f5f5;padding:0.5em;border-radius:4px;white-space:pre-line;max-height:200px;overflow-y:auto;display:none;"></div>
+  <div id="debug-info" class="debug-info" style="margin-top:1em;font-size:0.8em;max-height:200px;display:none;"></div>
 </div>
 <div class="box">
   <h3>Step 2</h3>
@@ -25,7 +29,7 @@
     <button id="clear-cookies-btn" title="Clear both session cookies and reset timestamps">Clear Cookies</button>
   </div>
   <div id="mam-result" style="margin-top:1em;font-weight:600;"></div>
-  <div id="mam-debug" style="margin-top:0.5em;font-size:0.8em;color:#666;background:#f5f5f5;padding:0.5em;border-radius:4px;white-space:pre-line;max-height:200px;overflow-y:auto;display:none;"></div>
+  <div id="mam-debug" class="debug-info" style="margin-top:0.5em;font-size:0.8em;max-height:200px;display:none;"></div>
   <button id="toggle-mam-debug" style="margin-top:0.5em;display:none;" title="Show/Hide MAM debug information">Show Debug</button>
   
   <!-- Session Cookies Display -->
@@ -33,11 +37,11 @@
     <h4>Session Cookies:</h4>
     <div style="margin-bottom:1em;">
       <label id="qbittorrent-cookie-label" style="display:block;margin-bottom:0.3em;font-weight:600;">qBittorrent Cookie:</label>
-      <textarea id="qbittorrent-cookie-display" readonly style="width:100%;height:60px;font-family:monospace;font-size:0.8em;background:#f9f9f9;border:1px solid #ddd;border-radius:4px;padding:0.5em;resize:vertical;" placeholder="No cookie generated yet..."></textarea>
+      <textarea id="qbittorrent-cookie-display" readonly style="width:100%;height:60px;font-family:monospace;font-size:0.8em;border-radius:4px;padding:0.5em;resize:vertical;" placeholder="No cookie generated yet..."></textarea>
     </div>
     <div>
       <label id="prowlarr-cookie-label" style="display:block;margin-bottom:0.3em;font-weight:600;">Prowlarr Cookie:</label>
-      <textarea id="prowlarr-cookie-display" readonly style="width:100%;height:60px;font-family:monospace;font-size:0.8em;background:#f9f9f9;border:1px solid #ddd;border-radius:4px;padding:0.5em;resize:vertical;" placeholder="No cookie generated yet..."></textarea>
+      <textarea id="prowlarr-cookie-display" readonly style="width:100%;height:60px;font-family:monospace;font-size:0.8em;border-radius:4px;padding:0.5em;resize:vertical;" placeholder="No cookie generated yet..."></textarea>
     </div>
   </div>
 </div>
@@ -49,7 +53,7 @@
     <button id="qbittorrent-logout-btn" title="Logout of qBittorrent">Logout qBittorrent</button>
   </div>
   <div id="qbittorrent-result" style="margin-top:1em;font-weight:600;"></div>
-  <div id="qbittorrent-debug" style="margin-top:0.5em;font-size:0.8em;color:#666;background:#f5f5f5;padding:0.5em;border-radius:4px;white-space:pre-line;max-height:200px;overflow-y:auto;display:none;"></div>
+  <div id="qbittorrent-debug" class="debug-info" style="margin-top:0.5em;font-size:0.8em;max-height:200px;display:none;"></div>
   <button id="toggle-qbittorrent-debug" style="margin-top:0.5em;display:none;" title="Show/Hide qBittorrent debug information">Show Debug</button>
 </div>
 <div class="box">
@@ -60,7 +64,7 @@
     <button id="prowlarr-logout-btn" title="Close Prowlarr browser session">Logout Prowlarr</button>
   </div>
   <div id="prowlarr-result" style="margin-top:1em;font-weight:600;"></div>
-  <div id="prowlarr-debug" style="margin-top:0.5em;font-size:0.8em;color:#666;background:#f5f5f5;padding:0.5em;border-radius:4px;white-space:pre-line;max-height:200px;overflow-y:auto;display:none;"></div>
+  <div id="prowlarr-debug" class="debug-info" style="margin-top:0.5em;font-size:0.8em;max-height:200px;display:none;"></div>
   <button id="toggle-prowlarr-debug" style="margin-top:0.5em;display:none;" title="Show/Hide Prowlarr debug information">Show Debug</button>
 </div>
 <script>
