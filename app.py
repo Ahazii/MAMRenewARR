@@ -3207,6 +3207,41 @@ def api_timer_auto_start():
             'message': f'Error setting auto-start: {str(e)}'
         })
 
+@app.route('/logs')
+def logs():
+    """View application logs"""
+    return render_template('logs.html')
+
+@app.route('/api/logs', methods=['GET'])
+def api_get_logs():
+    """Get log file contents"""
+    try:
+        lines = request.args.get('lines', '200')  # Default to last 200 lines
+        lines = int(lines)
+        
+        if not os.path.exists(LOG_FILE):
+            return jsonify({
+                'success': False,
+                'message': 'Log file not found'
+            })
+        
+        # Read last N lines efficiently
+        with open(LOG_FILE, 'r', encoding='utf-8', errors='ignore') as f:
+            all_lines = f.readlines()
+            log_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+        
+        return jsonify({
+            'success': True,
+            'logs': ''.join(log_lines),
+            'total_lines': len(all_lines)
+        })
+    except Exception as e:
+        log_info(f"Error reading logs: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Error reading logs: {str(e)}'
+        })
+
 @app.route('/api/timer_toggle', methods=['POST'])
 def api_timer_toggle():
     """Toggle timer on/off"""
@@ -3261,4 +3296,5 @@ if timer_state['active']:
     log_info(f"Timer auto-started on app initialization - next run: {timer_state.get('next_run')}")
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)

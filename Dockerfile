@@ -5,7 +5,8 @@ FROM python:3.12-slim
 
 # Set environment variables for cross-platform compatibility
 ENV PYTHONUNBUFFERED=1 \
-    TZ=UTC
+    TZ=UTC \
+    PORT=5000
 
 # Install system dependencies for Chrome, ChromeDriver, and Docker CLI
 RUN apt-get update && apt-get install -y \
@@ -40,8 +41,8 @@ COPY . .
 # Create data directory for persistent storage
 RUN mkdir -p /app/data
 
-# Expose port for Flask app (use 5000 by default)
-EXPOSE 5000
+# Expose port for Flask app (configurable via PORT env var)
+EXPOSE $PORT
 
 # Use Waitress for production-ready serving (cross-platform)
-CMD ["waitress-serve", "--listen=0.0.0.0:5000", "app:app"]
+CMD sh -c "waitress-serve --listen=0.0.0.0:${PORT} app:app"

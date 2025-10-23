@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>MAMRenewARR</Name>
+  <Repository>ghcr.io/ahazii/mamrenewarr:latest</Repository>
+  <Registry>https://ghcr.io</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/Ahazii/MAMRenewARR/issues</Support>
+  <Project>https://github.com/Ahazii/MAMRenewARR</Project>
+  <Overview>Automated MyAnonamouse session management for qBittorrent and Prowlarr. Keeps your torrent clients connected to MAM with automatic cookie renewal and session management.</Overview>
+  <Category>Downloaders:</Category>
+  <WebUI>http://[IP]:[PORT:5000]</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/Ahazii/MAMRenewARR/main/mamrenewarr.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/Ahazii/MAMRenewARR/main/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled></DateInstalled>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="WebUI Port" Target="5000" Default="5000" Mode="tcp" Description="Port for web interface" Type="Port" Display="always" Required="true" Mask="false">5000</Config>
+  <Config Name="Data" Target="/app/data" Default="/mnt/user/appdata/MAMRenewARR" Mode="rw" Description="Persistent storage for settings and logs" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/MAMRenewARR</Config>
+  <Config Name="Docker Socket" Target="/var/run/docker.sock" Default="/var/run/docker.sock" Mode="rw" Description="Docker socket for container management" Type="Path" Display="always" Required="true" Mask="false">/var/run/docker.sock</Config>
+  <Config Name="qBittorrent Logs" Target="/app/shared/qbittorrent-logs" Default="/mnt/user/appdata/binhex-qbittorrentvpn/qBittorrent/data/logs" Mode="ro" Description="qBittorrent log directory (read-only)" Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/binhex-qbittorrentvpn/qBittorrent/data/logs</Config>
+  <Config Name="Timezone" Target="TZ" Default="Europe/London" Mode="" Description="Timezone (e.g. America/New_York, Europe/London)" Type="Variable" Display="always" Required="false" Mask="false">Europe/London</Config>
+  <Config Name="Localtime" Target="/etc/localtime" Default="/etc/localtime" Mode="ro" Description="System localtime (read-only)" Type="Path" Display="advanced" Required="false" Mask="false">/etc/localtime</Config>
+  <Config Name="Application Port" Target="PORT" Default="5000" Mode="" Description="Internal application port (change if using custom port mapping)" Type="Variable" Display="advanced" Required="false" Mask="false">5000</Config>
+</Container>

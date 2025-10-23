@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="theme-toggle-bar">
+    <label for="theme-toggle">Theme:</label>
+    <button id="theme-toggle">🌞</button>
+</div>
+
+<h2>Application Logs</h2>
+
+<div class="box">
+    <div style="margin-bottom: 1em; display: flex; align-items: center; gap: 1em; flex-wrap: wrap;">
+        <div>
+            <label for="line-count" style="min-width: auto;">Show last:</label>
+            <select id="line-count" style="width: 120px;">
+                <option value="100">100 lines</option>
+                <option value="200" selected>200 lines</option>
+                <option value="500">500 lines</option>
+                <option value="1000">1000 lines</option>
+                <option value="all">All lines</option>
+            </select>
+        </div>
+        <div>
+            <label for="auto-refresh" style="min-width: auto;">
+                <input type="checkbox" id="auto-refresh" checked> Auto-refresh (5s)
+            </label>
+        </div>
+        <button onclick="refreshLogs()">Refresh Now</button>
+    </div>
+    
+    <div style="margin-bottom: 0.5em; color: #666; font-size: 0.9em;">
+        <span id="log-info">Loading logs...</span>
+    </div>
+    
+    <pre id="log-display" style="background: #23272b; color: #e2e2e2; padding: 1em; border-radius: 4px; overflow-x: auto; max-height: 600px; overflow-y: auto; font-size: 0.85em; line-height: 1.4;">Loading...</pre>
+</div>
+
+<script>
+let autoRefreshInterval = null;
+
+function refreshLogs() {
+    const lineCount = document.getElementById('line-count').value;
+    const logDisplay = document.getElementById('log-display');
+    const logInfo = document.getElementById('log-info');
+    
+    const url = lineCount === 'all' ? '/api/logs?lines=999999' : `/api/logs?lines=${lineCount}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                logDisplay.textContent = data.logs || 'No logs available';
+                logInfo.textContent = `Showing ${data.logs.split('\n').length} of ${data.total_lines} total lines`;
+                
+                // Scroll to bottom
+                logDisplay.scrollTop = logDisplay.scrollHeight;
+            } else {
+                logDisplay.textContent = `Error: ${data.message}`;
+                logInfo.textContent = 'Error loading logs';
+            }
+        })
+        .catch(error => {
+            logDisplay.textContent = `Error fetching logs: ${error}`;
+            logInfo.textContent = 'Error loading logs';
+        });
+}
+
+function setupAutoRefresh() {
+    const autoRefreshCheckbox = document.getElementById('auto-refresh');
+    
+    if (autoRefreshCheckbox.checked) {
+        if (!autoRefreshInterval) {
+            autoRefreshInterval = setInterval(refreshLogs, 5000);
+        }
+    } else {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+        }
+    }
+}
+
+// Event listeners
+document.getElementById('line-count').addEventListener('change', refreshLogs);
+document.getElementById('auto-refresh').addEventListener('change', setupAutoRefresh);
+
+// Initial load
+refreshLogs();
+setupAutoRefresh();
+</script>
+{% endblock %}
