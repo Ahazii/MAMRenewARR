@@ -12,6 +12,9 @@
         .nav-link:hover { text-decoration: underline; }
         main { margin: 2em auto; max-width: 700px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 2em; border-radius: 8px; }
         .version { font-size: 0.9em; color: #bbb; }
+        .version a { color: #88ccff; text-decoration: none; }
+        .version a:hover { text-decoration: underline; }
+        .build-date { font-size: 0.75em; color: #999; display: block; margin-top: 0.2em; }
         .box { background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; padding: 1em; margin-bottom: 1.5em; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
         .config-fields { display: flex; flex-direction: column; gap: 0.7em; max-width: 430px; margin: 0 auto; }
         label { font-weight: 600; margin-bottom: 0.2em; color: #333; display: inline-block; min-width: 140px; }
@@ -109,7 +112,8 @@ body.dark-mode .box button:hover, body.dark-mode button:hover {
 </head>
 <body>
     <header>
-        <h1>MyAnonamouseRenewarr <span class="version">{{ version }}</span></h1>
+        <h1>MyAnonamouseRenewarr <span class="version"><a href="https://github.com/Ahazii/MAMRenewARR/releases" target="_blank" title="View releases">{{ version }}</a></span></h1>
+        <div class="build-date">Built: {{ build_date }}</div>
         <div>by Ahazi</div>
         <nav>
             <a href="{{ url_for('basic') }}" class="nav-link">Basic</a> |

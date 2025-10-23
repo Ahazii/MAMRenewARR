@@ -112,6 +112,21 @@ def get_app_version():
     # Fallback version
     return "v0.1-dev"
 
+def get_build_date():
+    """Get Docker image build date from build_date.txt file or fallback"""
+    build_date_file = os.path.join('/app', 'build_date.txt')
+    try:
+        if os.path.exists(build_date_file):
+            with open(build_date_file, 'r') as f:
+                build_date = f.read().strip()
+                if build_date:
+                    return build_date
+    except Exception as e:
+        log_debug(f"Could not read build_date file: {e}")
+    
+    # Fallback
+    return "Unknown"
+
 # Timer state management (must be defined before load_timer_state is called)
 timer_state = {
     'active': False,
@@ -353,15 +368,15 @@ def index():
 
 @app.route('/basic')
 def basic():
-    return render_template('basic.html', version=get_app_version())
+    return render_template('basic.html', version=get_app_version(), build_date=get_build_date())
 
 @app.route('/advanced')
 def advanced():
-    return render_template('advanced.html', version=get_app_version())
+    return render_template('advanced.html', version=get_app_version(), build_date=get_build_date())
 
 @app.route('/config')
 def config():
-    return render_template('config.html', version=get_app_version())
+    return render_template('config.html', version=get_app_version(), build_date=get_build_date())
 
 @app.route('/api/settings', methods=['GET'])
 def api_get_settings():
@@ -3242,7 +3257,7 @@ def api_timer_auto_start():
 @app.route('/logs')
 def logs():
     """View application logs"""
-    return render_template('logs.html', version=get_app_version())
+    return render_template('logs.html', version=get_app_version(), build_date=get_build_date())
 
 @app.route('/api/logs', methods=['GET'])
 def api_get_logs():
