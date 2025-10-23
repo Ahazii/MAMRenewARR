@@ -204,15 +204,19 @@ docker run -d --name mamrenewarr -p 5000:5000 \
 
 ---
 
-## Git Commit
+## Git Commits
 
-**Commit**: `7f97758`  
+**Initial Implementation**: `7f97758`  
 **Message**: "Add timer persistence and auto-start"
-
-**Changes**:
 - 2 files changed, 148 insertions(+), 2 deletions(-)
 - app.py: Persistence logic and auto-start functionality
 - templates/basic.html: Auto-start UI and JavaScript
+
+**Critical Fix**: `9f1fcb2`  
+**Message**: "Fix NameError - move timer state before function call"
+- Fixed container startup crash
+- Moved timer state definitions before function calls
+- Container now starts properly
 
 ---
 
