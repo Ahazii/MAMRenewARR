@@ -142,11 +142,27 @@ def load_timer_state():
             # Restore timer state
             if 'timer_next_run' in settings and 'timer_active_on_shutdown' in settings:
                 if settings['timer_active_on_shutdown']:
-                    timer_state['next_run'] = settings['timer_next_run']
-                    timer_state['active'] = True
+                    from datetime import datetime
+                    saved_next_run = settings['timer_next_run']
                     
-                    # Note: timer worker will be started after app initialization
-                    log_info(f"Timer will auto-start after app initialization - next run: {timer_state['next_run']}")
+                    # Check if saved next_run is still in the future
+                    try:
+                        saved_next_run_dt = datetime.strptime(saved_next_run, '%Y-%m-%d %H:%M:%S')
+                        now = datetime.now()
+                        
+                        if saved_next_run_dt > now:
+                            # Next run is still in the future, restore it
+                            timer_state['next_run'] = saved_next_run
+                            timer_state['active'] = True
+                            log_info(f"Timer will auto-start after app initialization - next run: {timer_state['next_run']}")
+                        else:
+                            # Next run was in the past, recalculate it
+                            timer_state['active'] = True
+                            # Calculate next run (will be done by timer toggle after initialization)
+                            log_info(f"Saved next run ({saved_next_run}) was in the past, will recalculate on startup")
+                    except Exception as e:
+                        log_info(f"Error parsing saved next_run time: {e}, will recalculate")
+                        timer_state['active'] = True
                 else:
                     log_info("Timer auto-start enabled but timer was not active on shutdown")
             else:
@@ -3306,6 +3322,13 @@ def api_timer_toggle():
 
 # Start timer worker thread if auto-start is enabled and timer was active
 if timer_state['active']:
+    # If next_run wasn't restored (was in the past), calculate it now
+    if not timer_state.get('next_run'):
+        next_run_dt = calculate_next_run_time(add_interval_days=False)
+        timer_state['next_run'] = next_run_dt.strftime('%Y-%m-%d %H:%M:%S')
+        save_timer_state()  # Save the recalculated time
+        log_info(f"Recalculated next run time on startup: {timer_state['next_run']}")
+    
     import threading
     timer_thread = threading.Thread(target=timer_worker, daemon=True, name="TimerWorker")
     timer_thread.start()
