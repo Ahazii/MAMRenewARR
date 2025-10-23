@@ -97,6 +97,62 @@ def log_debug(message):
     """Log debug level message"""
     logger.debug(message)
 
+# Timer state management (must be defined before load_timer_state is called)
+timer_state = {
+    'active': False,
+    'next_run': None,
+    'last_run': None,
+    'history': []  # List of last 10 runs
+}
+timer_thread = None
+timer_lock = __import__('threading').Lock()
+
+def load_timer_state():
+    """Load timer state from settings on app startup"""
+    try:
+        settings = load_settings()
+        
+        # Load history
+        if 'timer_history' in settings:
+            timer_state['history'] = settings['timer_history']
+            log_info(f"Loaded {len(timer_state['history'])} timer history entries")
+        
+        # Load last run
+        if 'timer_last_run' in settings:
+            timer_state['last_run'] = settings['timer_last_run']
+            log_debug(f"Loaded timer last run: {timer_state['last_run']}")
+        
+        # Check if timer auto-start is enabled
+        if settings.get('timer_auto_start', False):
+            # Restore timer state
+            if 'timer_next_run' in settings and 'timer_active_on_shutdown' in settings:
+                if settings['timer_active_on_shutdown']:
+                    timer_state['next_run'] = settings['timer_next_run']
+                    timer_state['active'] = True
+                    
+                    # Note: timer worker will be started after app initialization
+                    log_info(f"Timer will auto-start after app initialization - next run: {timer_state['next_run']}")
+                else:
+                    log_info("Timer auto-start enabled but timer was not active on shutdown")
+            else:
+                log_info("Timer auto-start enabled but no saved timer state found")
+        else:
+            log_debug("Timer auto-start disabled")
+            
+    except Exception as e:
+        log_info(f"Error loading timer state: {e}")
+
+def save_timer_state():
+    """Save current timer state to settings"""
+    try:
+        settings = load_settings()
+        settings['timer_next_run'] = timer_state.get('next_run')
+        settings['timer_active_on_shutdown'] = timer_state.get('active', False)
+        save_settings(settings)
+        log_debug(f"Timer state saved - active: {timer_state.get('active')}, next_run: {timer_state.get('next_run')}")
+    except Exception as e:
+        log_info(f"Error saving timer state: {e}")
+
 app = Flask(__name__)
 
 # Initialize logging level from settings
@@ -2966,66 +3022,7 @@ def api_fix_all():
             'steps': steps
         })
 
-# Timer state management
-timer_state = {
-    'active': False,
-    'next_run': None,
-    'last_run': None,
-    'history': []  # List of last 10 runs
-}
-timer_thread = None
-timer_lock = __import__('threading').Lock()
-
-def load_timer_state():
-    """Load timer state from settings on app startup"""
-    try:
-        settings = load_settings()
-        
-        # Load history
-        if 'timer_history' in settings:
-            timer_state['history'] = settings['timer_history']
-            log_info(f"Loaded {len(timer_state['history'])} timer history entries")
-        
-        # Load last run
-        if 'timer_last_run' in settings:
-            timer_state['last_run'] = settings['timer_last_run']
-            log_debug(f"Loaded timer last run: {timer_state['last_run']}")
-        
-        # Check if timer auto-start is enabled
-        if settings.get('timer_auto_start', False):
-            # Restore timer state
-            if 'timer_next_run' in settings and 'timer_active_on_shutdown' in settings:
-                if settings['timer_active_on_shutdown']:
-                    timer_state['next_run'] = settings['timer_next_run']
-                    timer_state['active'] = True
-                    
-                    # Start timer worker thread
-                    global timer_thread
-                    import threading
-                    timer_thread = threading.Thread(target=timer_worker, daemon=True, name="TimerWorker")
-                    timer_thread.start()
-                    
-                    log_info(f"Timer auto-started on app startup - next run: {timer_state['next_run']}")
-                else:
-                    log_info("Timer auto-start enabled but timer was not active on shutdown")
-            else:
-                log_info("Timer auto-start enabled but no saved timer state found")
-        else:
-            log_debug("Timer auto-start disabled")
-            
-    except Exception as e:
-        log_info(f"Error loading timer state: {e}")
-
-def save_timer_state():
-    """Save current timer state to settings"""
-    try:
-        settings = load_settings()
-        settings['timer_next_run'] = timer_state.get('next_run')
-        settings['timer_active_on_shutdown'] = timer_state.get('active', False)
-        save_settings(settings)
-        log_debug(f"Timer state saved - active: {timer_state.get('active')}, next_run: {timer_state.get('next_run')}")
-    except Exception as e:
-        log_info(f"Error saving timer state: {e}")
+# Timer state management functions are defined earlier in the file
 
 def save_run_to_history(success, steps):
     """Save run result to history and persist to settings"""
@@ -3255,6 +3252,13 @@ def api_timer_toggle():
         'message': f"Timer {'activated' if new_state else 'deactivated'}",
         'next_run': timer_state.get('next_run')
     })
+
+# Start timer worker thread if auto-start is enabled and timer was active
+if timer_state['active']:
+    import threading
+    timer_thread = threading.Thread(target=timer_worker, daemon=True, name="TimerWorker")
+    timer_thread.start()
+    log_info(f"Timer auto-started on app initialization - next run: {timer_state.get('next_run')}")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
