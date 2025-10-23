@@ -17,6 +17,17 @@
     <label for="timer-toggle" style="font-weight:600;margin-right:1em;">Timer Status:</label>
     <button id="timer-toggle" style="padding:0.5em 1em;font-weight:bold;" title="Click to start/stop automated timer">TIMER OFF</button>
   </div>
+  <div style="margin-bottom:1em;padding:0.8em;background:#f0f8ff;border:1px solid #b3d9ff;border-radius:4px;">
+    <label style="display:flex;align-items:center;cursor:pointer;">
+      <input type="checkbox" id="auto-start-toggle" style="margin-right:0.5em;width:18px;height:18px;cursor:pointer;">
+      <span style="font-weight:600;">Auto-start timer on container restart</span>
+    </label>
+    <small style="display:block;margin-top:0.5em;color:#555;line-height:1.4;">
+      When enabled, the timer will automatically resume when the container restarts or is updated. 
+      This ensures your scheduled tasks continue running even after maintenance or updates. 
+      The timer will restart with its previously scheduled next run time.
+    </small>
+  </div>
   <div id="timer-info" style="margin-top:1em;">
     <div style="margin-bottom:0.5em;"><strong>Current Server Time:</strong> <span id="current-server-time" style="color:#0066cc;">Loading...</span></div>
     <div style="margin-bottom:0.5em;"><strong>Next Run:</strong> <span id="next-run-time">Not scheduled</span></div>
@@ -36,6 +47,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const fixMamBtn = document.getElementById('fix-myanonamouse-btn');
   const fixProwlarrBtn = document.getElementById('fix-prowlarr-btn');
   const timerToggleBtn = document.getElementById('timer-toggle');
+  const autoStartToggle = document.getElementById('auto-start-toggle');
   const statusMessage = document.getElementById('status-message');
   const progressLog = document.getElementById('progress-log');
   const nextRunTime = document.getElementById('next-run-time');
@@ -102,6 +114,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         nextRunTime.textContent = data.next_run || 'Not scheduled';
         lastRunTime.textContent = data.last_run || 'Never';
+        
+        // Update auto-start checkbox
+        if (autoStartToggle) {
+          autoStartToggle.checked = data.auto_start || false;
+        }
         
         // Update run history
         if (data.history && data.history.length > 0) {
@@ -268,6 +285,38 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }).catch(error => {
         alert('Network error: ' + error.message);
+      });
+    });
+  }
+  
+  // Auto-start toggle
+  if (autoStartToggle) {
+    autoStartToggle.addEventListener('change', function() {
+      const autoStart = autoStartToggle.checked;
+      
+      fetch('/api/timer_auto_start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auto_start: autoStart })
+      }).then(r => r.json()).then(data => {
+        if (data.success) {
+          // Show brief confirmation
+          const prevStatus = statusMessage.textContent;
+          updateStatus(data.message);
+          setTimeout(() => {
+            if (statusMessage.textContent === data.message) {
+              statusMessage.textContent = prevStatus;
+            }
+          }, 3000);
+        } else {
+          alert('Failed to set auto-start: ' + data.message);
+          // Revert checkbox
+          autoStartToggle.checked = !autoStart;
+        }
+      }).catch(error => {
+        alert('Network error: ' + error.message);
+        // Revert checkbox
+        autoStartToggle.checked = !autoStart;
       });
     });
   }

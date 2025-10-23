@@ -103,6 +103,9 @@ app = Flask(__name__)
 update_log_level()
 log_info("MAMRenewARR application starting up")
 
+# Load timer state from settings (history and auto-start)
+load_timer_state()
+
 # Global browser instance for session management
 global_driver = None
 
@@ -2973,8 +2976,59 @@ timer_state = {
 timer_thread = None
 timer_lock = __import__('threading').Lock()
 
+def load_timer_state():
+    """Load timer state from settings on app startup"""
+    try:
+        settings = load_settings()
+        
+        # Load history
+        if 'timer_history' in settings:
+            timer_state['history'] = settings['timer_history']
+            log_info(f"Loaded {len(timer_state['history'])} timer history entries")
+        
+        # Load last run
+        if 'timer_last_run' in settings:
+            timer_state['last_run'] = settings['timer_last_run']
+            log_debug(f"Loaded timer last run: {timer_state['last_run']}")
+        
+        # Check if timer auto-start is enabled
+        if settings.get('timer_auto_start', False):
+            # Restore timer state
+            if 'timer_next_run' in settings and 'timer_active_on_shutdown' in settings:
+                if settings['timer_active_on_shutdown']:
+                    timer_state['next_run'] = settings['timer_next_run']
+                    timer_state['active'] = True
+                    
+                    # Start timer worker thread
+                    global timer_thread
+                    import threading
+                    timer_thread = threading.Thread(target=timer_worker, daemon=True, name="TimerWorker")
+                    timer_thread.start()
+                    
+                    log_info(f"Timer auto-started on app startup - next run: {timer_state['next_run']}")
+                else:
+                    log_info("Timer auto-start enabled but timer was not active on shutdown")
+            else:
+                log_info("Timer auto-start enabled but no saved timer state found")
+        else:
+            log_debug("Timer auto-start disabled")
+            
+    except Exception as e:
+        log_info(f"Error loading timer state: {e}")
+
+def save_timer_state():
+    """Save current timer state to settings"""
+    try:
+        settings = load_settings()
+        settings['timer_next_run'] = timer_state.get('next_run')
+        settings['timer_active_on_shutdown'] = timer_state.get('active', False)
+        save_settings(settings)
+        log_debug(f"Timer state saved - active: {timer_state.get('active')}, next_run: {timer_state.get('next_run')}")
+    except Exception as e:
+        log_info(f"Error saving timer state: {e}")
+
 def save_run_to_history(success, steps):
-    """Save run result to history"""
+    """Save run result to history and persist to settings"""
     from datetime import datetime
     
     with timer_lock:
@@ -3004,6 +3058,16 @@ def save_run_to_history(success, steps):
         timer_state['last_run'] = entry['timestamp']
         
         log_info(f"Run saved to history: {status} - {entry['details']}")
+        
+        # Persist history to settings
+        try:
+            settings = load_settings()
+            settings['timer_history'] = timer_state['history']
+            settings['timer_last_run'] = timer_state['last_run']
+            save_settings(settings)
+            log_debug("Timer history persisted to settings")
+        except Exception as e:
+            log_info(f"Error persisting timer history: {e}")
 
 def calculate_next_run_time(add_interval_days=False):
     """Calculate next run time with jitter
@@ -3109,11 +3173,41 @@ def timer_worker():
 def api_timer_status():
     """Get timer status"""
     with timer_lock:
+        settings = load_settings()
         return jsonify({
             'active': timer_state['active'],
             'next_run': timer_state.get('next_run'),
             'last_run': timer_state.get('last_run'),
-            'history': timer_state.get('history', [])
+            'history': timer_state.get('history', []),
+            'auto_start': settings.get('timer_auto_start', False)
+        })
+
+@app.route('/api/timer_auto_start', methods=['POST'])
+def api_timer_auto_start():
+    """Toggle timer auto-start on container restart"""
+    data = request.json
+    auto_start = data.get('auto_start', False)
+    
+    log_info(f"Timer auto-start toggle requested: {auto_start}")
+    
+    try:
+        settings = load_settings()
+        settings['timer_auto_start'] = auto_start
+        save_settings(settings)
+        
+        # Also save current timer state if enabling auto-start
+        if auto_start:
+            save_timer_state()
+        
+        return jsonify({
+            'success': True,
+            'message': f"Timer auto-start {'enabled' if auto_start else 'disabled'}",
+            'auto_start': auto_start
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error setting auto-start: {str(e)}'
         })
 
 @app.route('/api/timer_toggle', methods=['POST'])
@@ -3152,6 +3246,9 @@ def api_timer_toggle():
             log_info("Timer deactivated")
             if timer_thread and timer_thread.is_alive():
                 log_info(f"Timer worker thread will stop on next check (ID: {timer_thread.name})")
+    
+    # Save timer state to persist across restarts (if auto-start enabled)
+    save_timer_state()
     
     return jsonify({
         'success': True,
