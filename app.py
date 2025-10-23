@@ -97,6 +97,21 @@ def log_debug(message):
     """Log debug level message"""
     logger.debug(message)
 
+def get_app_version():
+    """Get application version from version.txt file or fallback"""
+    version_file = os.path.join('/app', 'version.txt')
+    try:
+        if os.path.exists(version_file):
+            with open(version_file, 'r') as f:
+                version = f.read().strip()
+                if version:
+                    return version
+    except Exception as e:
+        log_debug(f"Could not read version file: {e}")
+    
+    # Fallback version
+    return "v0.1-dev"
+
 # Timer state management (must be defined before load_timer_state is called)
 timer_state = {
     'active': False,
@@ -157,7 +172,8 @@ app = Flask(__name__)
 
 # Initialize logging level from settings
 update_log_level()
-log_info("MAMRenewARR application starting up")
+app_version = get_app_version()
+log_info(f"MAMRenewARR application starting up - Version: {app_version}")
 
 # Load timer state from settings (history and auto-start)
 load_timer_state()
@@ -321,15 +337,15 @@ def index():
 
 @app.route('/basic')
 def basic():
-    return render_template('basic.html')
+    return render_template('basic.html', version=get_app_version())
 
 @app.route('/advanced')
 def advanced():
-    return render_template('advanced.html')
+    return render_template('advanced.html', version=get_app_version())
 
 @app.route('/config')
 def config():
-    return render_template('config.html')
+    return render_template('config.html', version=get_app_version())
 
 @app.route('/api/settings', methods=['GET'])
 def api_get_settings():
@@ -3210,7 +3226,7 @@ def api_timer_auto_start():
 @app.route('/logs')
 def logs():
     """View application logs"""
-    return render_template('logs.html')
+    return render_template('logs.html', version=get_app_version())
 
 @app.route('/api/logs', methods=['GET'])
 def api_get_logs():

@@ -8,12 +8,13 @@ ENV PYTHONUNBUFFERED=1 \
     TZ=UTC \
     PORT=5000
 
-# Install system dependencies for Chrome, ChromeDriver, and Docker CLI
+# Install system dependencies for Chrome, ChromeDriver, Docker CLI, and git
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
     unzip \
     curl \
+    git \
     ca-certificates \
     apt-transport-https \
     lsb-release \
@@ -37,6 +38,16 @@ RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
+
+# Capture version information at build time
+# Try to get git tag, fallback to commit hash, fallback to 'dev'
+RUN if command -v git > /dev/null 2>&1 && [ -d .git ]; then \
+        VERSION=$(git describe --tags --exact-match 2>/dev/null || git describe --tags 2>/dev/null || echo "v0.1-dev-$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"); \
+    else \
+        VERSION="v0.1-dev"; \
+    fi && \
+    echo $VERSION > /app/version.txt && \
+    echo "Build version: $VERSION"
 
 # Create data directory for persistent storage
 RUN mkdir -p /app/data
