@@ -299,6 +299,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Log into MAM button functionality
   if (loginMamBtn) {
     loginMamBtn.addEventListener('click', function() {
+      showProgress('mam-progress-bar', 'mam-progress-container', 'mam-progress-label', 'Logging into MAM...');
       mamResultDiv.textContent = 'Logging into MAM using Selenium...';
       mamResultDiv.style.color = '#666';
       loginMamBtn.disabled = true;
@@ -316,9 +317,13 @@ document.addEventListener('DOMContentLoaded', function() {
           if (data.redirect_url) {
             mamResultDiv.innerHTML += `<br><small>Redirected to: ${data.redirect_url}</small>`;
           }
+          completeProgress('mam-progress-bar', 'mam-progress-label', true, '✓ Login successful');
         } else {
           mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+          completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Login failed');
         }
+        
+        hideProgress('mam-progress-container', 'mam-progress-label');
         
         // Show debug information if available
         if (data.debug_info && data.debug_info.length > 0) {
@@ -329,6 +334,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }).catch(error => {
         loginMamBtn.disabled = false;
         mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+        completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Network error');
+        hideProgress('mam-progress-container', 'mam-progress-label');
       });
     });
   }
@@ -383,6 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // View Sessions button functionality
   if (viewSessionsBtn) {
     viewSessionsBtn.addEventListener('click', function() {
+      showProgress('mam-progress-bar', 'mam-progress-container', 'mam-progress-label', 'Loading sessions page...');
       mamResultDiv.textContent = 'Loading sessions page...';
       mamResultDiv.style.color = '#666';
       viewSessionsBtn.disabled = true;
@@ -400,9 +408,13 @@ document.addEventListener('DOMContentLoaded', function() {
           if (data.session_count) {
             mamResultDiv.innerHTML += `<br><small>Sessions found: ${data.session_count}</small>`;
           }
+          completeProgress('mam-progress-bar', 'mam-progress-label', true, '✓ Sessions loaded');
         } else {
           mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+          completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Failed to load sessions');
         }
+        
+        hideProgress('mam-progress-container', 'mam-progress-label');
         
         // Show debug information if available
         if (data.debug_info && data.debug_info.length > 0) {
@@ -413,6 +425,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }).catch(error => {
         viewSessionsBtn.disabled = false;
         mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+        completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Network error');
+        hideProgress('mam-progress-container', 'mam-progress-label');
       });
     });
   }
@@ -425,6 +439,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       
+      showProgress('mam-progress-bar', 'mam-progress-container', 'mam-progress-label', 'Deleting old sessions...');
       mamResultDiv.textContent = 'Deleting old sessions...';
       mamResultDiv.style.color = '#666';
       deleteOldSessionsBtn.disabled = true;
@@ -442,9 +457,13 @@ document.addEventListener('DOMContentLoaded', function() {
           if (data.deleted_count !== undefined) {
             mamResultDiv.innerHTML += `<br><small>Deleted: ${data.deleted_count} sessions</small>`;
           }
+          completeProgress('mam-progress-bar', 'mam-progress-label', true, '✓ Sessions deleted');
         } else {
           mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+          completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Delete failed');
         }
+        
+        hideProgress('mam-progress-container', 'mam-progress-label');
         
         // Show debug information if available
         if (data.debug_info && data.debug_info.length > 0) {
@@ -455,6 +474,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }).catch(error => {
         deleteOldSessionsBtn.disabled = false;
         mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+        completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Network error');
+        hideProgress('mam-progress-container', 'mam-progress-label');
       });
     });
   }
@@ -462,6 +483,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Create qBittorrent Session Cookie button functionality
   if (createQbittorrentSessionBtn) {
     createQbittorrentSessionBtn.addEventListener('click', function() {
+      showProgress('mam-progress-bar', 'mam-progress-container', 'mam-progress-label', 'Creating qBittorrent session...');
       mamResultDiv.textContent = 'Creating qBittorrent session cookie...';
       mamResultDiv.style.color = '#666';
       createQbittorrentSessionBtn.disabled = true;
@@ -479,9 +501,13 @@ document.addEventListener('DOMContentLoaded', function() {
           
           // Update the cookie display
           loadExistingCookies();
+          completeProgress('mam-progress-bar', 'mam-progress-label', true, '✓ qBittorrent session created');
         } else {
           mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+          completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Session creation failed');
         }
+        
+        hideProgress('mam-progress-container', 'mam-progress-label');
         
         // Show debug information if available
         if (data.debug_info && data.debug_info.length > 0) {
@@ -492,6 +518,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }).catch(error => {
         createQbittorrentSessionBtn.disabled = false;
         mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+        completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Network error');
+        hideProgress('mam-progress-container', 'mam-progress-label');
       });
     });
   }
@@ -499,6 +527,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Create Prowlarr Session Cookie button functionality
   if (createProwlarrSessionBtn) {
     createProwlarrSessionBtn.addEventListener('click', function() {
+      showProgress('mam-progress-bar', 'mam-progress-container', 'mam-progress-label', 'Creating Prowlarr session...');
       mamResultDiv.textContent = 'Creating Prowlarr session cookie...';
       mamResultDiv.style.color = '#666';
       createProwlarrSessionBtn.disabled = true;
@@ -516,9 +545,13 @@ document.addEventListener('DOMContentLoaded', function() {
           
           // Update the cookie display
           loadExistingCookies();
+          completeProgress('mam-progress-bar', 'mam-progress-label', true, '✓ Prowlarr session created');
         } else {
           mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+          completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Session creation failed');
         }
+        
+        hideProgress('mam-progress-container', 'mam-progress-label');
         
         // Show debug information if available
         if (data.debug_info && data.debug_info.length > 0) {
@@ -529,6 +562,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }).catch(error => {
         createProwlarrSessionBtn.disabled = false;
         mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+        completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Network error');
+        hideProgress('mam-progress-container', 'mam-progress-label');
       });
     });
   }
@@ -536,6 +571,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Logout MAM button functionality
   if (logoutMamBtn) {
     logoutMamBtn.addEventListener('click', function() {
+      showProgress('mam-progress-bar', 'mam-progress-container', 'mam-progress-label', 'Logging out from MAM...');
       mamResultDiv.textContent = 'Logging out from MAM (closing browser)...';
       mamResultDiv.style.color = '#666';
       logoutMamBtn.disabled = true;
@@ -550,12 +586,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (data.success) {
           mamResultDiv.innerHTML = `<span style='color:#007700'>✓ ${data.message}</span>`;
+          completeProgress('mam-progress-bar', 'mam-progress-label', true, '✓ Logged out');
         } else {
           mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+          completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Logout failed');
         }
+        
+        hideProgress('mam-progress-container', 'mam-progress-label');
       }).catch(error => {
         logoutMamBtn.disabled = false;
         mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+        completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Network error');
+        hideProgress('mam-progress-container', 'mam-progress-label');
       });
     });
   }
@@ -568,6 +610,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       
+      showProgress('mam-progress-bar', 'mam-progress-container', 'mam-progress-label', 'Clearing cookies...');
       mamResultDiv.textContent = 'Clearing session cookies...';
       mamResultDiv.style.color = '#666';
       clearCookiesBtn.disabled = true;
@@ -588,12 +631,18 @@ document.addEventListener('DOMContentLoaded', function() {
           
           // Update the cookie display to show cleared cookies
           loadExistingCookies();
+          completeProgress('mam-progress-bar', 'mam-progress-label', true, '✓ Cookies cleared');
         } else {
           mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+          completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Failed to clear');
         }
+        
+        hideProgress('mam-progress-container', 'mam-progress-label');
       }).catch(error => {
         clearCookiesBtn.disabled = false;
         mamResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+        completeProgress('mam-progress-bar', 'mam-progress-label', false, '✗ Network error');
+        hideProgress('mam-progress-container', 'mam-progress-label');
       });
     });
   }
@@ -614,6 +663,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // qBittorrent Login button functionality
   if (qbittorrentLoginBtn) {
     qbittorrentLoginBtn.addEventListener('click', function() {
+      showProgress('qbittorrent-progress-bar', 'qbittorrent-progress-container', 'qbittorrent-progress-label', 'Connecting to qBittorrent...');
       qbittorrentResultDiv.textContent = 'Connecting to qBittorrent container...';
       qbittorrentResultDiv.style.color = '#666';
       qbittorrentLoginBtn.disabled = true;
@@ -628,9 +678,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (data.success) {
           qbittorrentResultDiv.innerHTML = `<span style='color:#007700'>✓ ${data.message}</span>`;
+          completeProgress('qbittorrent-progress-bar', 'qbittorrent-progress-label', true, '✓ Connected');
         } else {
           qbittorrentResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+          completeProgress('qbittorrent-progress-bar', 'qbittorrent-progress-label', false, '✗ Connection failed');
         }
+        
+        hideProgress('qbittorrent-progress-container', 'qbittorrent-progress-label');
         
         // Show debug information if available
         if (data.debug_info && data.debug_info.length > 0) {
@@ -641,6 +695,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }).catch(error => {
         qbittorrentLoginBtn.disabled = false;
         qbittorrentResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+        completeProgress('qbittorrent-progress-bar', 'qbittorrent-progress-label', false, '✗ Network error');
+        hideProgress('qbittorrent-progress-container', 'qbittorrent-progress-label');
       });
     });
   }
@@ -708,6 +764,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // qBittorrent Logout button functionality
   if (qbittorrentLogoutBtn) {
     qbittorrentLogoutBtn.addEventListener('click', function() {
+      showProgress('qbittorrent-progress-bar', 'qbittorrent-progress-container', 'qbittorrent-progress-label', 'Disconnecting from qBittorrent...');
       qbittorrentResultDiv.textContent = 'Disconnecting from qBittorrent container...';
       qbittorrentResultDiv.style.color = '#666';
       qbittorrentLogoutBtn.disabled = true;
@@ -722,9 +779,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (data.success) {
           qbittorrentResultDiv.innerHTML = `<span style='color:#007700'>✓ ${data.message}</span>`;
+          completeProgress('qbittorrent-progress-bar', 'qbittorrent-progress-label', true, '✓ Disconnected');
         } else {
           qbittorrentResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+          completeProgress('qbittorrent-progress-bar', 'qbittorrent-progress-label', false, '✗ Disconnect failed');
         }
+        
+        hideProgress('qbittorrent-progress-container', 'qbittorrent-progress-label');
         
         // Show debug information if available
         if (data.debug_info && data.debug_info.length > 0) {
@@ -735,6 +796,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }).catch(error => {
         qbittorrentLogoutBtn.disabled = false;
         qbittorrentResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+        completeProgress('qbittorrent-progress-bar', 'qbittorrent-progress-label', false, '✗ Network error');
+        hideProgress('qbittorrent-progress-container', 'qbittorrent-progress-label');
       });
     });
   }
@@ -755,6 +818,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Prowlarr Login button functionality
   if (prowlarrLoginBtn) {
     prowlarrLoginBtn.addEventListener('click', function() {
+      showProgress('prowlarr-progress-bar', 'prowlarr-progress-container', 'prowlarr-progress-label', 'Connecting to Prowlarr...');
       prowlarrResultDiv.textContent = 'Connecting to Prowlarr web interface...';
       prowlarrResultDiv.style.color = '#666';
       prowlarrLoginBtn.disabled = true;
@@ -772,9 +836,13 @@ document.addEventListener('DOMContentLoaded', function() {
           if (data.page_title) {
             prowlarrResultDiv.innerHTML += `<br><small>Page: ${data.page_title}</small>`;
           }
+          completeProgress('prowlarr-progress-bar', 'prowlarr-progress-label', true, '✓ Connected');
         } else {
           prowlarrResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+          completeProgress('prowlarr-progress-bar', 'prowlarr-progress-label', false, '✗ Connection failed');
         }
+        
+        hideProgress('prowlarr-progress-container', 'prowlarr-progress-label');
         
         // Show debug information if available
         if (data.debug_info && data.debug_info.length > 0) {
@@ -785,6 +853,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }).catch(error => {
         prowlarrLoginBtn.disabled = false;
         prowlarrResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+        completeProgress('prowlarr-progress-bar', 'prowlarr-progress-label', false, '✗ Network error');
+        hideProgress('prowlarr-progress-container', 'prowlarr-progress-label');
       });
     });
   }
@@ -792,6 +862,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Prowlarr Send Cookie button functionality
   if (prowlarrSendCookieBtn) {
     prowlarrSendCookieBtn.addEventListener('click', function() {
+      showProgress('prowlarr-progress-bar', 'prowlarr-progress-container', 'prowlarr-progress-label', 'Sending cookie to Prowlarr...');
       prowlarrResultDiv.textContent = 'Updating Prowlarr MyAnonamouse indexer...';
       prowlarrResultDiv.style.color = '#666';
       prowlarrSendCookieBtn.disabled = true;
@@ -813,12 +884,16 @@ document.addEventListener('DOMContentLoaded', function() {
                            data.test_result === 'failure' ? '#bb0000' : '#ff8800';
             prowlarrResultDiv.innerHTML += `<br><small>Test Result: <span style='color:${testColor}'>${testIcon} ${data.test_result}</span></small>`;
           }
+          completeProgress('prowlarr-progress-bar', 'prowlarr-progress-label', true, '✓ Cookie sent successfully');
         } else {
           prowlarrResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
           if (data.test_result) {
             prowlarrResultDiv.innerHTML += `<br><small>Test Result: ${data.test_result}</small>`;
           }
+          completeProgress('prowlarr-progress-bar', 'prowlarr-progress-label', false, '✗ Cookie send failed');
         }
+        
+        hideProgress('prowlarr-progress-container', 'prowlarr-progress-label');
         
         // Show debug information if available
         if (data.debug_info && data.debug_info.length > 0) {
@@ -829,6 +904,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }).catch(error => {
         prowlarrSendCookieBtn.disabled = false;
         prowlarrResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+        completeProgress('prowlarr-progress-bar', 'prowlarr-progress-label', false, '✗ Network error');
+        hideProgress('prowlarr-progress-container', 'prowlarr-progress-label');
       });
     });
   }
@@ -836,6 +913,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Prowlarr Logout button functionality
   if (prowlarrLogoutBtn) {
     prowlarrLogoutBtn.addEventListener('click', function() {
+      showProgress('prowlarr-progress-bar', 'prowlarr-progress-container', 'prowlarr-progress-label', 'Closing Prowlarr session...');
       prowlarrResultDiv.textContent = 'Closing Prowlarr browser session...';
       prowlarrResultDiv.style.color = '#666';
       prowlarrLogoutBtn.disabled = true;
@@ -850,9 +928,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (data.success) {
           prowlarrResultDiv.innerHTML = `<span style='color:#007700'>✓ ${data.message}</span>`;
+          completeProgress('prowlarr-progress-bar', 'prowlarr-progress-label', true, '✓ Logged out');
         } else {
           prowlarrResultDiv.innerHTML = `<span style='color:#bb0000'>✗ ${data.message}</span>`;
+          completeProgress('prowlarr-progress-bar', 'prowlarr-progress-label', false, '✗ Logout failed');
         }
+        
+        hideProgress('prowlarr-progress-container', 'prowlarr-progress-label');
         
         // Show debug information if available
         if (data.debug_info && data.debug_info.length > 0) {
@@ -863,6 +945,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }).catch(error => {
         prowlarrLogoutBtn.disabled = false;
         prowlarrResultDiv.innerHTML = `<span style='color:#bb0000'>✗ Network error: ${error.message}</span>`;
+        completeProgress('prowlarr-progress-bar', 'prowlarr-progress-label', false, '✗ Network error');
+        hideProgress('prowlarr-progress-container', 'prowlarr-progress-label');
       });
     });
   }
