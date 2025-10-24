@@ -20,8 +20,8 @@
   <label for="security-page">Security Page:</label>
   <input type="text" id="security-page" value="https://www.myanonamouse.net/preferences/index.php?view=security">
   <label for="update-check-hours" style="margin-top:1em;">Update Check Interval (hours):</label>
-  <input type="number" id="update-check-hours" value="6" min="1" max="168" title="How often to check for updates (in hours). Default is 6 hours.">
-  <small style="display:block;margin-top:0.3em;color:#666;">How often to check GitHub for new releases. Set higher to reduce API calls.</small>
+  <input type="number" id="update-check-hours" value="6" min="0.1" max="168" step="0.1" title="How often to check for updates (in hours). Default is 6 hours. Can use decimals (e.g., 0.5 = 30 minutes).">
+  <small style="display:block;margin-top:0.3em;color:#666;">How often to check GitHub for new releases. Minimum 0.1 hours (6 minutes). Can use decimals for sub-hour intervals.</small>
 </div>
 <div class="box config-fields">
   <h3>Basic Mode Timer Settings</h3>
