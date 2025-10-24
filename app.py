@@ -1619,24 +1619,14 @@ def api_qbittorrent_login():
             'debug_info': debug_info
         })
 
-@app.route('/api/qbittorrent_send_cookie', methods=['POST'])
-def api_qbittorrent_send_cookie(mode='Advanced Mode'):
-    """Send qBittorrent cookie to container using curl command"""
+def _qbittorrent_send_cookie_internal(mode='Advanced Mode'):
+    """Internal function to send qBittorrent cookie - can be called from anywhere"""
     log_info("qBittorrent Send Cookie request started")
     debug_info = []
     
     # Check if we're in timer context
     if hasattr(execution_context, 'mode') and execution_context.mode == 'Timer':
         mode = 'Timer'
-    # Get mode from request if this is an HTTP POST (safely check for request context)
-    else:
-        try:
-            from flask import has_request_context
-            if has_request_context() and request.method == 'POST' and request.is_json:
-                mode = request.json.get('mode', mode)
-        except (RuntimeError, AttributeError):
-            # No request context or invalid request - use the parameter that was passed
-            pass
     
     try:
         import subprocess
@@ -1795,6 +1785,18 @@ def api_qbittorrent_send_cookie(mode='Advanced Mode'):
             'message': f'Send cookie error: {str(e)}',
             'debug_info': debug_info
         })
+
+@app.route('/api/qbittorrent_send_cookie', methods=['POST'])
+def api_qbittorrent_send_cookie():
+    """Route handler - extracts mode from request and calls internal function"""
+    mode = 'Advanced Mode'  # Default mode
+    try:
+        from flask import has_request_context
+        if has_request_context() and request.is_json:
+            mode = request.json.get('mode', mode)
+    except:
+        pass  # Use default mode if request extraction fails
+    return _qbittorrent_send_cookie_internal(mode)
 
 @app.route('/api/qbittorrent_logout', methods=['POST'])
 def api_qbittorrent_logout():
@@ -2683,7 +2685,7 @@ def api_fix_myanonamouse():
         # Step 8: Send Cookie to MAM
         log_info("Step 8: Send Cookie to MAM")
         try:
-            response = api_qbittorrent_send_cookie(mode='Basic Mode - Fix MyAnonamouse')
+            response = _qbittorrent_send_cookie_internal(mode='Basic Mode - Fix MyAnonamouse')
             data = response.get_json()
             if data['success']:
                 steps.append({'name': 'Send Cookie to MAM', 'status': 'SUCCESS', 'message': data['message']})
@@ -3030,7 +3032,7 @@ def api_fix_all():
         # Step 10: Send Cookie to MAM
         log_info("Step 10: Send Cookie to MAM")
         try:
-            response = api_qbittorrent_send_cookie(mode='Basic Mode - Fix All')
+            response = _qbittorrent_send_cookie_internal(mode='Basic Mode - Fix All')
             data = response.get_json()
             if data['success']:
                 steps.append({'name': 'Send Cookie to MAM', 'status': 'SUCCESS', 'message': data['message']})
