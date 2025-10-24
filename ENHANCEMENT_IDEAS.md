@@ -32,7 +32,7 @@ Add a visible toggle button in the UI (currently users must manually set theme)
 Real-time progress bars for long operations (session deletion, container restart, etc.)
 - **Priority:** Medium
 - **Effort:** Medium
-- **Status:** Not Started
+- **Status:** ✅ COMPLETED (modern horizontal progress bars in Basic and Advanced modes with status tracking)
 
 ### 6. Notification system
 Toast/popup notifications instead of just inline status messages

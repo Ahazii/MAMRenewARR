@@ -1,6 +1,25 @@
 # Changelog
 
-## [Latest] - 2025-10-23
+## [Latest] - 2025-10-24
+
+### Added
+- **Progress Bars** - Modern horizontal progress bars for all operations in Basic and Advanced modes
+- **Footer Status Tracking** - Persistent footer showing last MAM cookie push status (success/failure) with mode and timestamp
+- **Mode Tracking** - Footer displays which mode performed the cookie push (Timer, Basic Mode - Fix All, Basic Mode - Fix MyAnonamouse, Advanced Mode)
+
+### Fixed
+- **400 Bad Request Error** - Fixed internal function calls by extracting send cookie logic from Flask route handler
+- **Footer Status Updates** - Footer now correctly updates for both successful and failed operations
+- **Missing Failure Tracking** - All error paths (curl failures, timeouts, exceptions) now save status to footer
+
+### Changed
+- Refactored qBittorrent send cookie function into internal function for direct calling without HTTP context
+- Progress bars auto-hide after 5 seconds with color-coded status (blue=in-progress, green=success, red=failure)
+- Footer status persists across container restarts
+
+---
+
+## [v1.x] - 2025-10-23
 
 ### Added
 - **Run History Persistence** - History now survives container restarts

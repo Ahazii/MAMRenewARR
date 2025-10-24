@@ -11,8 +11,10 @@ Automated MyAnonamouse session management for qBittorrent and Prowlarr. Keeps yo
 - 🤖 **Automated Timer** - Schedule daily/weekly runs with jitter and timezone support
 - 🔄 **Auto-Restart** - Timer persists through container restarts
 - 📊 **Run History** - Track last 10 automated runs
+- 🟢 **Progress Bars** - Real-time visual feedback for all operations
+- 📊 **Status Tracking** - Persistent footer shows last cookie push status and mode
 - 🎯 **Basic Mode** - One-click fixes for qBittorrent and Prowlarr
-- 🔧 **Advanced Mode** - Step-by-step manual control
+- 🔧 **Advanced Mode** - Step-by-step manual control with progress indicators
 - 🌐 **Web Interface** - Clean UI with light/dark themes
 - 📝 **Log Viewer** - Web-based log viewer with auto-refresh
 - 🔧 **Configurable Port** - Change port via environment variable
