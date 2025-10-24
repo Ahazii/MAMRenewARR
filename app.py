@@ -1628,9 +1628,14 @@ def api_qbittorrent_send_cookie(mode='Advanced Mode'):
     # Check if we're in timer context
     if hasattr(execution_context, 'mode') and execution_context.mode == 'Timer':
         mode = 'Timer'
-    # Get mode from request if this is an HTTP POST
-    elif request and request.json:
-        mode = request.json.get('mode', mode)
+    # Get mode from request if this is an HTTP POST (safely check for request context)
+    else:
+        try:
+            if request and request.method == 'POST' and request.is_json:
+                mode = request.json.get('mode', mode)
+        except RuntimeError:
+            # No request context - use the parameter that was passed
+            pass
     
     try:
         import subprocess
