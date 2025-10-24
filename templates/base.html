@@ -134,6 +134,76 @@ body.dark-mode .box button:hover, body.dark-mode button:hover {
             color: #e2e2e2;
             border: 1px solid #444;
         }
+        
+        /* Modern Progress Bar Styles */
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5em;
+            margin-bottom: 0.5em;
+            position: relative;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        body.dark-mode .progress-container {
+            background: #3d3d3d;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #007bff;
+            transition: width 0.4s ease, background-color 0.3s ease;
+            border-radius: 4px;
+            position: relative;
+        }
+        
+        /* Progress bar states */
+        .progress-bar.in-progress {
+            background: linear-gradient(90deg, #007bff, #0056b3, #007bff);
+            background-size: 200% 100%;
+            animation: progressPulse 2s ease-in-out infinite;
+        }
+        
+        .progress-bar.success {
+            background: #28a745;
+        }
+        
+        .progress-bar.error {
+            background: #dc3545;
+        }
+        
+        @keyframes progressPulse {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        /* Progress text label */
+        .progress-label {
+            font-size: 0.85em;
+            margin-top: 0.3em;
+            font-weight: 600;
+            min-height: 1.2em;
+        }
+        
+        body.light-mode .progress-label {
+            color: #666;
+        }
+        
+        body.dark-mode .progress-label {
+            color: #999;
+        }
+        
+        .progress-label.success {
+            color: #28a745 !important;
+        }
+        
+        .progress-label.error {
+            color: #dc3545 !important;
+        }
 
 
         .button-row { display: flex; flex-wrap: wrap; gap: 0.6em; margin-bottom: 1em; }
@@ -298,5 +368,47 @@ function showUpdateBanner(data) {
     banner.classList.add('show');
   }
 }
+
+// Footer status loader
+function loadFooterStatus() {
+  fetch('/api/status')
+    .then(r => r.json())
+    .then(data => {
+      const statusElement = document.getElementById('status');
+      if (!statusElement) return;
+      
+      // If no push status, show default ready message
+      if (!data.last_push_status || !data.last_push_time) {
+        statusElement.textContent = 'Status area: Ready';
+        statusElement.style.color = '';
+        return;
+      }
+      
+      // Build status message
+      const icon = data.last_push_status === 'success' ? '✓' : '✗';
+      const statusText = data.last_push_status === 'success' ? 'successful' : 'failed';
+      const mode = data.last_push_mode || 'Unknown';
+      
+      let message = `${icon} MAM cookie push ${statusText} by ${mode} at ${data.last_push_time}`;
+      
+      // Add next scheduled run if available
+      if (data.next_scheduled_run) {
+        message += `. Next refresh at ${data.next_scheduled_run}`;
+      }
+      
+      statusElement.textContent = message;
+      statusElement.style.color = data.last_push_status === 'success' ? '#28a745' : '#dc3545';
+    })
+    .catch(err => {
+      console.log('Failed to load footer status:', err);
+    });
+}
+
+// Load footer status on page load
+window.addEventListener('DOMContentLoaded', () => {
+  loadFooterStatus();
+  // Refresh footer status every 30 seconds
+  setInterval(loadFooterStatus, 30000);
+});
 </script>
 </html>

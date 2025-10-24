@@ -1702,6 +1702,12 @@ def api_qbittorrent_send_cookie():
                     debug_info.append('SUCCESS: Found {"Success":true in response')
                     log_info("✓ Successfully secured qBittorrent session with MAM")
                     
+                    # Save push status to settings for footer display
+                    settings['last_mam_push_status'] = 'success'
+                    settings['last_mam_push_mode'] = 'Advanced'  # This is from Advanced Mode
+                    settings['last_mam_push_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    save_settings(settings)
+                    
                     return jsonify({
                         'success': True,
                         'message': 'Successfully secured qBittorrent session with MAM',
@@ -1712,6 +1718,13 @@ def api_qbittorrent_send_cookie():
                 elif 'Last change too recent' in response_text or (json_data and json_data.get('msg') == 'Last change too recent'):
                     debug_info.append('RATE LIMIT: MAM reports last change too recent')
                     log_warning(f"MAM rate limit hit: {response_text}")
+                    
+                    # Save failure status
+                    settings['last_mam_push_status'] = 'failed'
+                    settings['last_mam_push_mode'] = 'Advanced'
+                    settings['last_mam_push_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    save_settings(settings)
+                    
                     return jsonify({
                         'success': False,
                         'message': 'MAM rate limit: Last change too recent. Please wait before trying again.',
@@ -1726,6 +1739,12 @@ def api_qbittorrent_send_cookie():
                     error_msg = 'Session setup failed - unexpected response from MAM'
                     if json_data and json_data.get('msg'):
                         error_msg = f"MAM error: {json_data.get('msg')}"
+                    
+                    # Save failure status
+                    settings['last_mam_push_status'] = 'failed'
+                    settings['last_mam_push_mode'] = 'Advanced'
+                    settings['last_mam_push_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    save_settings(settings)
                     
                     return jsonify({
                         'success': False,
@@ -3370,6 +3389,30 @@ def api_check_update():
         return jsonify({
             'success': False,
             'message': f'Error checking for updates: {str(e)}'
+        })
+
+@app.route('/api/status')
+def api_status():
+    """Get current application status for footer display"""
+    try:
+        settings = load_settings()
+        
+        status_data = {
+            'last_push_status': settings.get('last_mam_push_status'),  # 'success' or 'failed'
+            'last_push_mode': settings.get('last_mam_push_mode'),  # 'Timer', 'Manual', 'Advanced'
+            'last_push_time': settings.get('last_mam_push_time'),
+            'next_scheduled_run': timer_state.get('next_run') if timer_state.get('active') else None
+        }
+        
+        return jsonify(status_data)
+        
+    except Exception as e:
+        log_error(f"Error getting status: {e}")
+        return jsonify({
+            'last_push_status': None,
+            'last_push_mode': None,
+            'last_push_time': None,
+            'next_scheduled_run': None
         })
 
 @app.route('/api/health')

@@ -160,7 +160,7 @@ Add your own ideas and notes below:
 - ~~Put the feedback from the push to MAM from qbittorrent CURL command~~ ✅ DONE (displayed in status)
 
 ### Remaining Ideas:
-- Add prowlarr updating (already done - Prowlarr is updated in Fix All/Fix Prowlarr)
+- Add prowlarr updating (Trigger Prowlarr to sync with  the app indexers)
 - Use Status area at bottom of the screen for something?
 - Add qBittorrent directory config setting
 - Can we make it work with other versions of qbittorrent?
