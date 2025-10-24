@@ -1711,7 +1711,7 @@ def api_qbittorrent_send_cookie():
                 # Check for rate limit message
                 elif 'Last change too recent' in response_text or (json_data and json_data.get('msg') == 'Last change too recent'):
                     debug_info.append('RATE LIMIT: MAM reports last change too recent')
-                    log_info(f"MAM rate limit hit: {response_text}")
+                    log_warning(f"MAM rate limit hit: {response_text}")
                     return jsonify({
                         'success': False,
                         'message': 'MAM rate limit: Last change too recent. Please wait before trying again.',
@@ -1720,7 +1720,7 @@ def api_qbittorrent_send_cookie():
                     })
                 else:
                     debug_info.append('FAILURE: Did not find {"Success":true in response')
-                    log_info(f"qBittorrent session setup failed - unexpected response: {response_text}")
+                    log_error(f"qBittorrent session setup failed - unexpected response: {response_text}")
                     
                     # Try to extract error message from JSON
                     error_msg = 'Session setup failed - unexpected response from MAM'
@@ -1735,7 +1735,7 @@ def api_qbittorrent_send_cookie():
                     })
             else:
                 debug_info.append(f"Curl command failed with exit code: {result.returncode}")
-                log_info(f"Curl command failed: {result.stderr}")
+                log_error(f"Curl command failed: {result.stderr}")
                 return jsonify({
                     'success': False,
                     'message': f'Curl command failed: {result.stderr}',
@@ -1744,7 +1744,7 @@ def api_qbittorrent_send_cookie():
                 
         except subprocess.TimeoutExpired:
             debug_info.append("Curl command timed out after 30 seconds")
-            log_info("Curl command timed out")
+            log_error("Curl command timed out")
             return jsonify({
                 'success': False,
                 'message': 'Curl command timed out after 30 seconds',
@@ -3463,6 +3463,7 @@ if timer_state['active']:
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+
 
 
 
