@@ -171,6 +171,10 @@ timer_state = {
 timer_thread = None
 timer_lock = __import__('threading').Lock()
 
+# Thread-local storage to track execution context (Timer vs Manual)
+import threading
+execution_context = threading.local()
+
 def load_timer_state():
     """Load timer state from settings on app startup"""
     try:
@@ -1616,10 +1620,17 @@ def api_qbittorrent_login():
         })
 
 @app.route('/api/qbittorrent_send_cookie', methods=['POST'])
-def api_qbittorrent_send_cookie():
+def api_qbittorrent_send_cookie(mode='Advanced Mode'):
     """Send qBittorrent cookie to container using curl command"""
     log_info("qBittorrent Send Cookie request started")
     debug_info = []
+    
+    # Check if we're in timer context
+    if hasattr(execution_context, 'mode') and execution_context.mode == 'Timer':
+        mode = 'Timer'
+    # Get mode from request if this is an HTTP POST
+    elif request and request.json:
+        mode = request.json.get('mode', mode)
     
     try:
         import subprocess
@@ -1704,7 +1715,7 @@ def api_qbittorrent_send_cookie():
                     
                     # Save push status to settings for footer display
                     settings['last_mam_push_status'] = 'success'
-                    settings['last_mam_push_mode'] = 'Advanced'  # This is from Advanced Mode
+                    settings['last_mam_push_mode'] = mode  # Use the mode parameter
                     settings['last_mam_push_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     save_settings(settings)
                     
@@ -1721,7 +1732,7 @@ def api_qbittorrent_send_cookie():
                     
                     # Save failure status
                     settings['last_mam_push_status'] = 'failed'
-                    settings['last_mam_push_mode'] = 'Advanced'
+                    settings['last_mam_push_mode'] = mode
                     settings['last_mam_push_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     save_settings(settings)
                     
@@ -1742,7 +1753,7 @@ def api_qbittorrent_send_cookie():
                     
                     # Save failure status
                     settings['last_mam_push_status'] = 'failed'
-                    settings['last_mam_push_mode'] = 'Advanced'
+                    settings['last_mam_push_mode'] = mode
                     settings['last_mam_push_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     save_settings(settings)
                     
@@ -2663,21 +2674,21 @@ def api_fix_myanonamouse():
             log_info(f"✗ Login qBittorrent error: {e}")
             overall_success = False
         
-        # Step 8: Send Cookie to qBittorrent
-        log_info("Step 8: Send Cookie to qBittorrent")
+        # Step 8: Send Cookie to MAM
+        log_info("Step 8: Send Cookie to MAM")
         try:
-            response = api_qbittorrent_send_cookie()
+            response = api_qbittorrent_send_cookie(mode='Basic Mode - Fix MyAnonamouse')
             data = response.get_json()
             if data['success']:
-                steps.append({'name': 'Send Cookie to qBittorrent', 'status': 'SUCCESS', 'message': data['message']})
-                log_info("✓ Send Cookie to qBittorrent: Success")
+                steps.append({'name': 'Send Cookie to MAM', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Send Cookie to MAM: Success")
             else:
-                steps.append({'name': 'Send Cookie to qBittorrent', 'status': 'FAILED', 'message': data['message']})
-                log_info(f"✗ Send Cookie to qBittorrent: {data['message']}")
+                steps.append({'name': 'Send Cookie to MAM', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Send Cookie to MAM: {data['message']}")
                 overall_success = False
         except Exception as e:
-            steps.append({'name': 'Send Cookie to qBittorrent', 'status': 'ERROR', 'message': str(e)})
-            log_info(f"✗ Send Cookie to qBittorrent error: {e}")
+            steps.append({'name': 'Send Cookie to MAM', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Send Cookie to MAM error: {e}")
             overall_success = False
         
         # Step 9: Logout qBittorrent
@@ -3010,21 +3021,21 @@ def api_fix_all():
             log_info(f"✗ Login qBittorrent error: {e}")
             overall_success = False
         
-        # Step 10: Send Cookie to qBittorrent
-        log_info("Step 10: Send Cookie to qBittorrent")
+        # Step 10: Send Cookie to MAM
+        log_info("Step 10: Send Cookie to MAM")
         try:
-            response = api_qbittorrent_send_cookie()
+            response = api_qbittorrent_send_cookie(mode='Basic Mode - Fix All')
             data = response.get_json()
             if data['success']:
-                steps.append({'name': 'Send Cookie to qBittorrent', 'status': 'SUCCESS', 'message': data['message']})
-                log_info("✓ Send Cookie to qBittorrent: Success")
+                steps.append({'name': 'Send Cookie to MAM', 'status': 'SUCCESS', 'message': data['message']})
+                log_info("✓ Send Cookie to MAM: Success")
             else:
-                steps.append({'name': 'Send Cookie to qBittorrent', 'status': 'FAILED', 'message': data['message']})
-                log_info(f"✗ Send Cookie to qBittorrent: {data['message']}")
+                steps.append({'name': 'Send Cookie to MAM', 'status': 'FAILED', 'message': data['message']})
+                log_info(f"✗ Send Cookie to MAM: {data['message']}")
                 overall_success = False
         except Exception as e:
-            steps.append({'name': 'Send Cookie to qBittorrent', 'status': 'ERROR', 'message': str(e)})
-            log_info(f"✗ Send Cookie to qBittorrent error: {e}")
+            steps.append({'name': 'Send Cookie to MAM', 'status': 'ERROR', 'message': str(e)})
+            log_info(f"✗ Send Cookie to MAM error: {e}")
             overall_success = False
         
         # Step 11: Logout qBittorrent
@@ -3208,6 +3219,27 @@ def calculate_next_run_time(add_interval_days=False):
     
     return next_run
 
+def run_fix_all_as_timer():
+    """Helper to run Fix All with Timer mode for cookie tracking"""
+    log_info("Fix All orchestration started (Timer)")
+    
+    try:
+        # Set execution context to Timer mode
+        execution_context.mode = 'Timer'
+        
+        # Run Fix All - it will detect Timer context and use 'Timer' as mode
+        response = api_fix_all()
+        
+        return response
+        
+    except Exception as e:
+        log_error(f"Timer Fix All error: {e}")
+        return None
+    finally:
+        # Clear execution context
+        if hasattr(execution_context, 'mode'):
+            delattr(execution_context, 'mode')
+
 def timer_worker():
     """Background thread for timer"""
     import threading
@@ -3238,10 +3270,10 @@ def timer_worker():
                 if now >= next_run_dt:
                     log_info(f"Timer triggered - running Fix All (ID: {thread_id})")
                     
-                    # Run Fix All
+                    # Run Fix All with Timer mode
                     with app.test_request_context():
                         try:
-                            api_fix_all()
+                            run_fix_all_as_timer()
                         except Exception as e:
                             log_info(f"Timer execution error: {e}")
                             import traceback

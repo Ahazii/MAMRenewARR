@@ -2,29 +2,17 @@
 {% block content %}
 <h2>Basic Mode</h2>
 <div class="box">
-  <div style="margin-bottom:1em;">
+  <div class="button-row">
     <button id="fix-all-btn" title="Run all fixes">Fix All</button>
-    <div class="progress-container" id="fix-all-progress-container" style="display:none;">
-      <div class="progress-bar" id="fix-all-progress-bar"></div>
-    </div>
-    <div class="progress-label" id="fix-all-progress-label"></div>
-  </div>
-  
-  <div style="margin-bottom:1em;">
     <button id="fix-myanonamouse-btn" title="Fix MyAnonamouse">Fix MyAnonamouse</button>
-    <div class="progress-container" id="fix-mam-progress-container" style="display:none;">
-      <div class="progress-bar" id="fix-mam-progress-bar"></div>
-    </div>
-    <div class="progress-label" id="fix-mam-progress-label"></div>
+    <button id="fix-prowlarr-btn" title="Fix Prowlarr">Fix Prowlarr</button>
   </div>
   
-  <div style="margin-bottom:1em;">
-    <button id="fix-prowlarr-btn" title="Fix Prowlarr">Fix Prowlarr</button>
-    <div class="progress-container" id="fix-prowlarr-progress-container" style="display:none;">
-      <div class="progress-bar" id="fix-prowlarr-progress-bar"></div>
-    </div>
-    <div class="progress-label" id="fix-prowlarr-progress-label"></div>
+  <!-- Shared progress bar for all operations -->
+  <div class="progress-container" id="basic-progress-container" style="display:none;">
+    <div class="progress-bar" id="basic-progress-bar"></div>
   </div>
+  <div class="progress-label" id="basic-progress-label"></div>
   
   <div id="status-message" style="margin-top:1em;font-weight:600;"></div>
   <div id="progress-log" class="progress-log" style="display:none;"></div>
@@ -225,14 +213,14 @@ document.addEventListener('DOMContentLoaded', function() {
   if (fixAllBtn) {
     fixAllBtn.addEventListener('click', function() {
       clearProgress();
-      showProgress('fix-all-progress-bar', 'fix-all-progress-container', 'fix-all-progress-label', 'Starting Fix All...');
+      showProgress('basic-progress-bar', 'basic-progress-container', 'basic-progress-label', 'Starting Fix All...');
       updateStatus('Running Fix All... This may take a while...');
       fixAllBtn.disabled = true;
       fixMamBtn.disabled = true;
       fixProwlarrBtn.disabled = true;
       
       appendProgress('Starting Fix All operation...');
-      updateProgress('fix-all-progress-bar', 10, 'Processing...', 'fix-all-progress-label');
+      updateProgress('basic-progress-bar', 10, 'Starting...', 'basic-progress-label');
       
       fetch('/api/fix_all', {
         method: 'POST',
@@ -244,20 +232,24 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (data.success) {
           updateStatus(data.message);
-          completeProgress('fix-all-progress-bar', 'fix-all-progress-label', true, '✓ Fix All completed successfully');
+          completeProgress('basic-progress-bar', 'basic-progress-label', true, '✓ Fix All completed successfully');
         } else {
           updateStatus(data.message, true);
-          completeProgress('fix-all-progress-bar', 'fix-all-progress-label', false, '✗ Fix All failed');
+          completeProgress('basic-progress-bar', 'basic-progress-label', false, '✗ Fix All failed');
         }
         
         if (data.steps && data.steps.length > 0) {
+          let completedSteps = 0;
           data.steps.forEach(step => {
             appendProgress(`[${step.status}] ${step.name}: ${step.message}`);
+            if (step.status === 'SUCCESS' || step.status === 'COMPLETE') {
+              completedSteps++;
+            }
           });
         }
         
         // Hide progress bar after 5 seconds
-        hideProgress('fix-all-progress-container', 'fix-all-progress-label');
+        hideProgress('basic-progress-container', 'basic-progress-label');
         
         // Refresh timer status to update history
         loadTimerStatus();
@@ -271,8 +263,8 @@ document.addEventListener('DOMContentLoaded', function() {
         fixMamBtn.disabled = false;
         fixProwlarrBtn.disabled = false;
         updateStatus('Network error: ' + error.message, true);
-        completeProgress('fix-all-progress-bar', 'fix-all-progress-label', false, '✗ Network error');
-        hideProgress('fix-all-progress-container', 'fix-all-progress-label');
+        completeProgress('basic-progress-bar', 'basic-progress-label', false, '✗ Network error');
+        hideProgress('basic-progress-container', 'basic-progress-label');
       });
     });
   }
@@ -281,14 +273,14 @@ document.addEventListener('DOMContentLoaded', function() {
   if (fixMamBtn) {
     fixMamBtn.addEventListener('click', function() {
       clearProgress();
-      showProgress('fix-mam-progress-bar', 'fix-mam-progress-container', 'fix-mam-progress-label', 'Starting Fix MyAnonamouse...');
+      showProgress('basic-progress-bar', 'basic-progress-container', 'basic-progress-label', 'Starting Fix MyAnonamouse...');
       updateStatus('Running Fix MyAnonamouse...');
       fixAllBtn.disabled = true;
       fixMamBtn.disabled = true;
       fixProwlarrBtn.disabled = true;
       
       appendProgress('Starting Fix MyAnonamouse operation...');
-      updateProgress('fix-mam-progress-bar', 10, 'Processing...', 'fix-mam-progress-label');
+      updateProgress('basic-progress-bar', 10, 'Starting...', 'basic-progress-label');
       
       fetch('/api/fix_myanonamouse', {
         method: 'POST',
@@ -300,10 +292,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (data.success) {
           updateStatus(data.message);
-          completeProgress('fix-mam-progress-bar', 'fix-mam-progress-label', true, '✓ Fix MyAnonamouse completed successfully');
+          completeProgress('basic-progress-bar', 'basic-progress-label', true, '✓ Fix MyAnonamouse completed successfully');
         } else {
           updateStatus(data.message, true);
-          completeProgress('fix-mam-progress-bar', 'fix-mam-progress-label', false, '✗ Fix MyAnonamouse failed');
+          completeProgress('basic-progress-bar', 'basic-progress-label', false, '✗ Fix MyAnonamouse failed');
         }
         
         if (data.steps && data.steps.length > 0) {
@@ -312,7 +304,7 @@ document.addEventListener('DOMContentLoaded', function() {
           });
         }
         
-        hideProgress('fix-mam-progress-container', 'fix-mam-progress-label');
+        hideProgress('basic-progress-container', 'basic-progress-label');
         
         // Reload footer status
         if (typeof loadFooterStatus === 'function') {
@@ -323,8 +315,8 @@ document.addEventListener('DOMContentLoaded', function() {
         fixMamBtn.disabled = false;
         fixProwlarrBtn.disabled = false;
         updateStatus('Network error: ' + error.message, true);
-        completeProgress('fix-mam-progress-bar', 'fix-mam-progress-label', false, '✗ Network error');
-        hideProgress('fix-mam-progress-container', 'fix-mam-progress-label');
+        completeProgress('basic-progress-bar', 'basic-progress-label', false, '✗ Network error');
+        hideProgress('basic-progress-container', 'basic-progress-label');
       });
     });
   }
@@ -333,14 +325,14 @@ document.addEventListener('DOMContentLoaded', function() {
   if (fixProwlarrBtn) {
     fixProwlarrBtn.addEventListener('click', function() {
       clearProgress();
-      showProgress('fix-prowlarr-progress-bar', 'fix-prowlarr-progress-container', 'fix-prowlarr-progress-label', 'Starting Fix Prowlarr...');
+      showProgress('basic-progress-bar', 'basic-progress-container', 'basic-progress-label', 'Starting Fix Prowlarr...');
       updateStatus('Running Fix Prowlarr...');
       fixAllBtn.disabled = true;
       fixMamBtn.disabled = true;
       fixProwlarrBtn.disabled = true;
       
       appendProgress('Starting Fix Prowlarr operation...');
-      updateProgress('fix-prowlarr-progress-bar', 10, 'Processing...', 'fix-prowlarr-progress-label');
+      updateProgress('basic-progress-bar', 10, 'Starting...', 'basic-progress-label');
       
       fetch('/api/fix_prowlarr', {
         method: 'POST',
@@ -352,10 +344,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (data.success) {
           updateStatus(data.message);
-          completeProgress('fix-prowlarr-progress-bar', 'fix-prowlarr-progress-label', true, '✓ Fix Prowlarr completed successfully');
+          completeProgress('basic-progress-bar', 'basic-progress-label', true, '✓ Fix Prowlarr completed successfully');
         } else {
           updateStatus(data.message, true);
-          completeProgress('fix-prowlarr-progress-bar', 'fix-prowlarr-progress-label', false, '✗ Fix Prowlarr failed');
+          completeProgress('basic-progress-bar', 'basic-progress-label', false, '✗ Fix Prowlarr failed');
         }
         
         if (data.steps && data.steps.length > 0) {
@@ -364,14 +356,14 @@ document.addEventListener('DOMContentLoaded', function() {
           });
         }
         
-        hideProgress('fix-prowlarr-progress-container', 'fix-prowlarr-progress-label');
+        hideProgress('basic-progress-container', 'basic-progress-label');
       }).catch(error => {
         fixAllBtn.disabled = false;
         fixMamBtn.disabled = false;
         fixProwlarrBtn.disabled = false;
         updateStatus('Network error: ' + error.message, true);
-        completeProgress('fix-prowlarr-progress-bar', 'fix-prowlarr-progress-label', false, '✗ Network error');
-        hideProgress('fix-prowlarr-progress-container', 'fix-prowlarr-progress-label');
+        completeProgress('basic-progress-bar', 'basic-progress-label', false, '✗ Network error');
+        hideProgress('basic-progress-container', 'basic-progress-label');
       });
     });
   }
