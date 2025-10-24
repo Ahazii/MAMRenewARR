@@ -284,7 +284,8 @@ function showUpdateBanner(data) {
   const link = document.getElementById('update-link');
   
   if (banner && versionSpan && link) {
-    versionSpan.textContent = `v${data.latest_version} is now available`;
+    // Don't add 'v' prefix - already included in latest_version from GitHub API
+    versionSpan.textContent = `${data.latest_version} is now available`;
     link.href = data.release_url;
     banner.classList.add('show');
   }

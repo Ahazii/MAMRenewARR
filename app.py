@@ -3314,7 +3314,38 @@ def api_check_update():
             current_ver = current_version.lstrip('v')
             latest_ver = latest_version.lstrip('v')
             
-            update_available = latest_ver > current_ver if latest_ver and current_ver else False
+            # Improved version comparison:
+            # - Treat 'dev' versions as pre-release (always older than proper releases)
+            # - Compare semantic versions properly
+            update_available = False
+            if latest_ver and current_ver:
+                # If current is dev version, any proper release is newer
+                if 'dev' in current_ver.lower():
+                    # Extract base version from dev string (e.g., "0.1-dev-xxx" -> "0.1")
+                    current_base = current_ver.split('-')[0]
+                    # Compare base version with latest
+                    try:
+                        current_parts = [int(x) for x in current_base.split('.')]
+                        latest_parts = [int(x) for x in latest_ver.split('.')]
+                        # Pad shorter version with zeros
+                        max_len = max(len(current_parts), len(latest_parts))
+                        current_parts += [0] * (max_len - len(current_parts))
+                        latest_parts += [0] * (max_len - len(latest_parts))
+                        update_available = latest_parts > current_parts
+                    except (ValueError, AttributeError):
+                        # Fallback to string comparison
+                        update_available = latest_ver > current_ver
+                else:
+                    # Normal semantic version comparison
+                    try:
+                        current_parts = [int(x) for x in current_ver.split('.')]
+                        latest_parts = [int(x) for x in latest_ver.split('.')]
+                        max_len = max(len(current_parts), len(latest_parts))
+                        current_parts += [0] * (max_len - len(current_parts))
+                        latest_parts += [0] * (max_len - len(latest_parts))
+                        update_available = latest_parts > current_parts
+                    except (ValueError, AttributeError):
+                        update_available = latest_ver > current_ver
             
             log_debug(f"Update check: current={current_version}, latest={latest_version}, update_available={update_available}")
             
