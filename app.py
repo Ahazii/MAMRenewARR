@@ -14,6 +14,7 @@ from urllib3.util.retry import Retry
 
 SETTINGS_FILE = os.path.join('/app/data', 'settings.json')
 LOG_FILE = os.path.join('/app/data', 'mamrenewarr.log')
+HISTORY_FILE = os.path.join('/app/data', 'run_history.json')
 
 # Ensure data directory exists
 os.makedirs('/app/data', exist_ok=True)
@@ -97,6 +98,31 @@ def log_debug(message):
     """Log debug level message"""
     logger.debug(message)
 
+def load_history():
+    """Load run history from dedicated history file"""
+    try:
+        if os.path.exists(HISTORY_FILE):
+            with open(HISTORY_FILE, 'r') as f:
+                data = json.load(f)
+                return data.get('history', []), data.get('last_run')
+        return [], None
+    except Exception as e:
+        log_info(f"Error loading history file: {e}")
+        return [], None
+
+def save_history(history, last_run):
+    """Save run history to dedicated history file"""
+    try:
+        data = {
+            'history': history,
+            'last_run': last_run
+        }
+        with open(HISTORY_FILE, 'w') as f:
+            json.dump(data, f, indent=2)
+        log_debug(f"History saved to file - {len(history)} entries")
+    except Exception as e:
+        log_info(f"Error saving history file: {e}")
+
 def get_app_version():
     """Get application version from version.txt file or fallback"""
     version_file = os.path.join('/app', 'version.txt')
@@ -142,15 +168,14 @@ def load_timer_state():
     try:
         settings = load_settings()
         
-        # Load history
-        if 'timer_history' in settings:
-            timer_state['history'] = settings['timer_history']
-            log_info(f"Loaded {len(timer_state['history'])} timer history entries")
-        
-        # Load last run
-        if 'timer_last_run' in settings:
-            timer_state['last_run'] = settings['timer_last_run']
-            log_debug(f"Loaded timer last run: {timer_state['last_run']}")
+        # Load history from dedicated file
+        history, last_run = load_history()
+        if history:
+            timer_state['history'] = history
+            log_info(f"Loaded {len(history)} timer history entries from file")
+        if last_run:
+            timer_state['last_run'] = last_run
+            log_debug(f"Loaded timer last run: {last_run}")
         
         # Check if timer auto-start is enabled
         if settings.get('timer_auto_start', False):
@@ -3110,15 +3135,8 @@ def save_run_to_history(success, steps):
         
         log_info(f"Run saved to history: {status} - {entry['details']}")
         
-        # Persist history to settings
-        try:
-            settings = load_settings()
-            settings['timer_history'] = timer_state['history']
-            settings['timer_last_run'] = timer_state['last_run']
-            save_settings(settings)
-            log_debug("Timer history persisted to settings")
-        except Exception as e:
-            log_info(f"Error persisting timer history: {e}")
+        # Persist history to dedicated file
+        save_history(timer_state['history'], timer_state['last_run'])
 
 def calculate_next_run_time(add_interval_days=False):
     """Calculate next run time with jitter
