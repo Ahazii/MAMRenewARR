@@ -14,7 +14,7 @@ Make the version number a clickable link to the GitHub releases page
 API endpoint that checks GitHub for newer releases and shows a notification banner
 - **Priority:** Medium
 - **Effort:** Medium
-- **Status:** ✅ COMPLETED (checks on startup, caches for 6 hours, shows banner when update available)
+- **Status:** ✅ COMPLETED (checks on startup, configurable interval, shows banner when update available)
 
 ### 3. Build date/time display
 Show when the Docker image was built alongside version number
@@ -167,5 +167,7 @@ Add your own ideas and notes below:
 - ~~Log Handling: Log Colour Coding by severity, Log Clear, log filter, log search~~ ✅ DONE (all features implemented)
 - Move basic mode timer settings to basic mode (keep config screen for just credentials/IPs)
 - Progress of currently running task does not display if you navigate away from that page and back (known limitation - progress is in-memory only)
-- Title Bar is not changing with light/dark theme.
-- 
+- ~~Title Bar is not changing with light/dark theme~~ ✅ DONE (header/footer/status fully theme-aware)
+- ~~Update check interval configurable~~ ✅ DONE (added to config page, 1-168 hours)
+- ~~Log levels - use ERROR/WARNING for failures instead of INFO~~ ✅ DONE (all errors now properly logged as ERROR, rate limits as WARNING)
+- Operation-based log filtering (filter by Fix All, Fix Prowlarr, Get IPs, Timer, etc.)
