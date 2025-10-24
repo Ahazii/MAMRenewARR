@@ -1631,10 +1631,11 @@ def api_qbittorrent_send_cookie(mode='Advanced Mode'):
     # Get mode from request if this is an HTTP POST (safely check for request context)
     else:
         try:
-            if request and request.method == 'POST' and request.is_json:
+            from flask import has_request_context
+            if has_request_context() and request.method == 'POST' and request.is_json:
                 mode = request.json.get('mode', mode)
-        except RuntimeError:
-            # No request context - use the parameter that was passed
+        except (RuntimeError, AttributeError):
+            # No request context or invalid request - use the parameter that was passed
             pass
     
     try:
