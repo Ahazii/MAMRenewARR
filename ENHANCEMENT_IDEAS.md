@@ -152,3 +152,27 @@ Undo last operation if something goes wrong (e.g., restore deleted sessions)
 ## Notes
 Add your own ideas and notes below:
 
+Add prowlarr updating.
+
+Move light/dark mode icon up to header.
+
+More Description of the timer, what does it do? Hover text?
+
+Use Status area at bottom of the screen for something?
+
+Is it using the qbittorrent directory in the config?
+
+Can we make it work with other versions of qbittorrent?
+
+Cleaan up UI, Clean up config, remove unuseeed options, unraid un and pass
+
+Log Handling, Log Colour Coding by severity, Log Clear, log filter, log search.
+
+On basic mode run history, put more info if failed, what failed?
+
+Put the feedback from the push to MAM from qbittorrent CURL command
+
+Move basic mode timer settings to basic mode. Keep config screen for just usernames passwords ip's etc.
+
+
+

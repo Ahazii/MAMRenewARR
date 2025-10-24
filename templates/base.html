@@ -106,12 +106,39 @@ body.dark-mode .box button:hover, body.dark-mode button:hover {
 
 
         .button-row { display: flex; flex-wrap: wrap; gap: 0.6em; margin-bottom: 1em; }
-        .theme-toggle-bar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1em; }
-        .theme-toggle-bar label { margin: 0 0.5em 0 0; min-width: unset; font-weight: 500; color: #444; }
+        
+        /* Theme toggle in header */
+        .header-theme-toggle {
+            position: absolute;
+            top: 1em;
+            right: 1em;
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+        }
+        .header-theme-toggle label {
+            font-size: 0.85em;
+            color: #bbb;
+            margin: 0;
+            min-width: unset;
+        }
+        .header-theme-toggle button {
+            padding: 0.3em 0.6em;
+            font-size: 1.2em;
+            margin: 0;
+        }
+        body.dark-mode .header-theme-toggle label {
+            color: #999;
+        }
+        header { position: relative; }
     </style>
 </head>
 <body>
     <header>
+        <div class="header-theme-toggle">
+            <label for="theme-toggle">Theme:</label>
+            <button id="theme-toggle" title="Toggle light/dark mode">🌞</button>
+        </div>
         <h1>MyAnonamouseRenewarr <span class="version"><a href="https://github.com/Ahazii/MAMRenewARR/releases" target="_blank" title="View releases">{{ version }}</a></span></h1>
         <div class="build-date">Built: {{ build_date }}</div>
         <div>by Ahazi</div>

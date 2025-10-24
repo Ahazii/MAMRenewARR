@@ -3076,21 +3076,28 @@ def save_run_to_history(success, steps):
     from datetime import datetime
     
     with timer_lock:
-        # Determine status
+        # Determine status and build detailed message
         if success:
             status = 'Success'
+            details = f"All {len(steps)} steps completed successfully"
         else:
             failed_steps = [s for s in steps if s['status'] in ['FAILED', 'ERROR']]
+            success_count = len([s for s in steps if s['status'] == 'SUCCESS'])
+            
             if failed_steps:
                 status = 'Partial'
+                # Build detailed failure message
+                failed_names = [f"{s['name']} ({s['message'][:50]}...)" if len(s['message']) > 50 else f"{s['name']} ({s['message']})" for s in failed_steps]
+                details = f"{success_count}/{len(steps)} succeeded. Failed: {'; '.join(failed_names)}"
             else:
                 status = 'Failed'
+                details = f"All {len(steps)} steps failed"
         
         # Create history entry
         entry = {
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'status': status,
-            'details': f"{len([s for s in steps if s['status'] == 'SUCCESS'])}/{len(steps)} steps succeeded"
+            'details': details
         }
         
         # Add to history (keep last 10)

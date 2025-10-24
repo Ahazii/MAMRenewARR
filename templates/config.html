@@ -1,14 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="theme-toggle-bar">
-  <label for="theme-toggle">Light/Dark Mode:</label>
-  <button id="theme-toggle" title="Toggle light/dark mode">🌞/🌜</button>
-</div>
 <h2>Config Page</h2>
 <div class="box config-fields">
   <h3>MyAnonamouseRenewarr</h3>
-  <label for="config-folder">Config Folder:</label>
-  <input type="text" id="config-folder" value="/mnt/user/appdata/MyAnonamouseRenewarr" title="Path to the docker's setting file">
   <label for="loglevel">LogLevel:</label>
   <select id="loglevel">
     <option value="Info">Info</option>
@@ -37,18 +31,6 @@
   <label for="timer-interval-days" style="margin-top:1em;">Run Interval (days):</label>
   <input type="number" id="timer-interval-days" value="1" min="1" max="365" title="Number of days between each automated run (e.g., 1 for daily, 7 for weekly)">
   <small style="display:block;margin-top:0.3em;color:#666;">Number of days to wait between each run. Set to 1 for daily, 7 for weekly, etc.</small>
-</div>
-<div class="box config-fields">
-  <h3>Unraid</h3>
-  <label for="unraid-ip">Unraid IP:</label>
-  <input type="text" id="unraid-ip" value="192.168.1.55">
-  <label for="unraid-username">Username:</label>
-  <input type="text" id="unraid-username" value="root">
-  <label for="unraid-password">Password:</label>
-  <div style="display:flex;align-items:center;gap:0.5em;">
-    <input type="password" id="unraid-password">
-    <button title="Show/Hide password">👁️</button>
-  </div>
 </div>
 <div class="box config-fields">
   <h3>Prowlarr</h3>

@@ -1,9 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="theme-toggle-bar">
-  <label for="theme-toggle">Light/Dark Mode:</label>
-  <button id="theme-toggle" title="Toggle light/dark mode">🌞/🌜</button>
-</div>
 <h2>Basic Mode</h2>
 <div class="box">
   <div class="button-row">
@@ -17,6 +13,11 @@
 
 <div class="box">
   <h3>Automated Timer</h3>
+  <p style="margin-bottom:1em;color:#666;line-height:1.5;">
+    The automated timer runs "Fix All" on a schedule to keep your MAM cookies fresh and sessions active. 
+    Configure the schedule in the Config page (run time, interval, and jitter). 
+    When enabled, it will automatically renew your MyAnonamouse sessions for qBittorrent and Prowlarr.
+  </p>
   <div style="margin-bottom:1em;">
     <label for="timer-toggle" style="font-weight:600;margin-right:1em;">Timer Status:</label>
     <button id="timer-toggle" style="padding:0.5em 1em;font-weight:bold;" title="Click to start/stop automated timer">TIMER OFF</button>
