@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request, redirect, url_for
+from flask import Flask, render_template, jsonify, request, redirect, url_for, send_from_directory
 import os
 import json
 import requests
@@ -390,6 +390,11 @@ def get_mam_session():
 @app.route('/')
 def index():
     return redirect(url_for('basic'))
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'favicon-32x32.png', mimetype='image/png')
 
 @app.route('/basic')
 def basic():
@@ -2658,6 +2663,9 @@ def api_fix_myanonamouse():
             log_info(f"✗ Logout qBittorrent error: {e}")
             overall_success = False
         
+        # Save to history
+        save_run_to_history(overall_success, steps)
+        
         # Final result
         if overall_success:
             log_info("Fix MyAnonamouse completed successfully")
@@ -2788,26 +2796,12 @@ def api_fix_prowlarr():
                 log_info(f"✗ Send Cookie to Prowlarr: {data['message']}")
                 overall_success = False
         except Exception as e:
-            steps.append({'name': 'Send Cookie to Prowlarr', 'status': 'ERROR', 'message': str(e)})
-            log_info(f"✗ Send Cookie to Prowlarr error: {e}")
-            overall_success = False
-        
-        # Step 7: Logout Prowlarr
-        log_info("Step 7: Logout Prowlarr")
-        try:
-            response = api_prowlarr_logout()
-            data = response.get_json()
-            if data['success']:
-                steps.append({'name': 'Logout Prowlarr', 'status': 'SUCCESS', 'message': data['message']})
-                log_info("✓ Logout Prowlarr: Success")
-            else:
-                steps.append({'name': 'Logout Prowlarr', 'status': 'FAILED', 'message': data['message']})
-                log_info(f"✗ Logout Prowlarr: {data['message']}")
-                overall_success = False
-        except Exception as e:
             steps.append({'name': 'Logout Prowlarr', 'status': 'ERROR', 'message': str(e)})
             log_info(f"✗ Logout Prowlarr error: {e}")
             overall_success = False
+        
+        # Save to history
+        save_run_to_history(overall_success, steps)
         
         # Final result
         if overall_success:
