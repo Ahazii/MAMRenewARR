@@ -414,8 +414,15 @@ def api_get_settings():
 
 @app.route('/api/settings', methods=['POST'])
 def api_save_settings():
+    # Load existing settings first to preserve fields not in the form
+    existing_settings = load_settings()
+    
+    # Merge new data into existing settings (new data takes precedence)
     data = request.json
-    save_settings(data)
+    existing_settings.update(data)
+    
+    # Save the merged settings
+    save_settings(existing_settings)
     return jsonify({'status': 'ok'})
 
 @app.route('/api/get_ips', methods=['GET'])
@@ -3273,6 +3280,59 @@ def api_timer_auto_start():
             'message': f'Error setting auto-start: {str(e)}'
         })
 
+@app.route('/api/check_update', methods=['GET'])
+def api_check_update():
+    """Check for updates from GitHub releases"""
+    try:
+        # GitHub repo details - update these if repo changes
+        repo_owner = "Ahazii"
+        repo_name = "MAMRenewARR"
+        
+        # Get current version
+        current_version = get_app_version()
+        
+        # Check GitHub API for latest release
+        api_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/releases/latest"
+        response = requests.get(api_url, timeout=10)
+        
+        if response.status_code == 200:
+            release_data = response.json()
+            latest_version = release_data.get('tag_name', '')
+            release_url = release_data.get('html_url', '')
+            release_notes = release_data.get('body', '')
+            published_at = release_data.get('published_at', '')
+            
+            # Compare versions (strip 'v' prefix if present)
+            current_ver = current_version.lstrip('v')
+            latest_ver = latest_version.lstrip('v')
+            
+            update_available = latest_ver > current_ver if latest_ver and current_ver else False
+            
+            log_debug(f"Update check: current={current_version}, latest={latest_version}, update_available={update_available}")
+            
+            return jsonify({
+                'success': True,
+                'update_available': update_available,
+                'current_version': current_version,
+                'latest_version': latest_version,
+                'release_url': release_url,
+                'release_notes': release_notes[:200] + '...' if len(release_notes) > 200 else release_notes,
+                'published_at': published_at
+            })
+        else:
+            log_debug(f"GitHub API returned status {response.status_code}")
+            return jsonify({
+                'success': False,
+                'message': f'GitHub API returned status {response.status_code}'
+            })
+            
+    except Exception as e:
+        log_debug(f"Error checking for updates: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Error checking for updates: {str(e)}'
+        })
+
 @app.route('/logs')
 def logs():
     """View application logs"""
@@ -3306,6 +3366,30 @@ def api_get_logs():
         return jsonify({
             'success': False,
             'message': f'Error reading logs: {str(e)}'
+        })
+
+@app.route('/api/logs/clear', methods=['POST'])
+def api_clear_logs():
+    """Clear the log file"""
+    try:
+        log_info("Log file clear requested")
+        
+        # Truncate the log file
+        with open(LOG_FILE, 'w') as f:
+            f.write('')
+        
+        # Log the action (will write to the now-empty file)
+        log_info("Log file cleared by user")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Log file cleared successfully'
+        })
+    except Exception as e:
+        log_info(f"Error clearing logs: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Error clearing logs: {str(e)}'
         })
 
 @app.route('/api/timer_toggle', methods=['POST'])

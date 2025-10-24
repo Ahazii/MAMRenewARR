@@ -134,9 +134,35 @@ body.dark-mode .box button:hover, body.dark-mode button:hover {
             color: #999;
         }
         header { position: relative; }
+        
+        /* Update notification banner */
+        .update-banner {
+            background: #ff9800;
+            color: #fff;
+            padding: 0.8em 1em;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+            border-bottom: 3px solid #f57c00;
+        }
+        .update-banner.show {
+            display: block;
+        }
+        .update-banner a {
+            color: #fff;
+            text-decoration: underline;
+            font-weight: bold;
+        }
+        .update-banner a:hover {
+            color: #ffeb3b;
+        }
     </style>
 </head>
 <body>
+    <div id="update-banner" class="update-banner">
+        🎉 Update Available! <span id="update-version"></span> - 
+        <a id="update-link" href="#" target="_blank">Download Now</a>
+    </div>
     <header>
         <div class="header-theme-toggle">
             <label for="theme-toggle">Theme:</label>
@@ -177,6 +203,56 @@ window.addEventListener('DOMContentLoaded', () => {
   if (!mode) { mode = 'light'; }
   setTheme(mode);
   if (toggleBtn) toggleBtn.addEventListener('click', toggleTheme);
+  
+  // Check for updates
+  checkForUpdates();
 });
+
+// Update checker
+function checkForUpdates() {
+  // Check if we've checked recently (cache for 6 hours)
+  const lastCheck = localStorage.getItem('lastUpdateCheck');
+  const now = Date.now();
+  const sixHours = 6 * 60 * 60 * 1000;
+  
+  if (lastCheck && (now - parseInt(lastCheck)) < sixHours) {
+    // Use cached result
+    const cachedResult = localStorage.getItem('updateCheckResult');
+    if (cachedResult) {
+      const result = JSON.parse(cachedResult);
+      if (result.update_available) {
+        showUpdateBanner(result);
+      }
+    }
+    return;
+  }
+  
+  // Perform new check
+  fetch('/api/check_update')
+    .then(r => r.json())
+    .then(data => {
+      if (data.success && data.update_available) {
+        showUpdateBanner(data);
+      }
+      // Cache the result
+      localStorage.setItem('lastUpdateCheck', now.toString());
+      localStorage.setItem('updateCheckResult', JSON.stringify(data));
+    })
+    .catch(err => {
+      console.log('Update check failed:', err);
+    });
+}
+
+function showUpdateBanner(data) {
+  const banner = document.getElementById('update-banner');
+  const versionSpan = document.getElementById('update-version');
+  const link = document.getElementById('update-link');
+  
+  if (banner && versionSpan && link) {
+    versionSpan.textContent = `v${data.latest_version} is now available`;
+    link.href = data.release_url;
+    banner.classList.add('show');
+  }
+}
 </script>
 </html>

@@ -20,21 +20,98 @@
             </label>
         </div>
         <button onclick="refreshLogs()">Refresh Now</button>
+        <button onclick="clearLogs()" style="background: #d32f2f !important; color: #fff !important; border-color: #b71c1c;">Clear Log</button>
+    </div>
+    
+    <!-- Search and Filter Controls -->
+    <div style="margin-bottom: 1em; padding: 1em; background: rgba(0,0,0,0.03); border-radius: 4px;">
+        <div style="margin-bottom: 0.8em;">
+            <label for="log-search" style="min-width: auto; display: block; margin-bottom: 0.3em;">Search:</label>
+            <input type="text" id="log-search" placeholder="Search logs..." style="width: 100%; max-width: 500px;">
+            <small style="display: block; margin-top: 0.3em; color: #666;"><span id="search-matches">0</span> matches found</small>
+        </div>
+        
+        <div>
+            <label style="min-width: auto; display: block; margin-bottom: 0.3em;">Filter by Level:</label>
+            <div style="display: flex; gap: 1em; flex-wrap: wrap;">
+                <label style="min-width: auto; font-weight: normal;">
+                    <input type="checkbox" id="filter-debug" checked>
+                    <span style="color: #999;">DEBUG</span>
+                </label>
+                <label style="min-width: auto; font-weight: normal;">
+                    <input type="checkbox" id="filter-info" checked>
+                    <span>INFO</span>
+                </label>
+                <label style="min-width: auto; font-weight: normal;">
+                    <input type="checkbox" id="filter-warning" checked>
+                    <span style="color: #ff9800;">WARNING</span>
+                </label>
+                <label style="min-width: auto; font-weight: normal;">
+                    <input type="checkbox" id="filter-error" checked>
+                    <span style="color: #f44336;">ERROR</span>
+                </label>
+            </div>
+        </div>
     </div>
     
     <div style="margin-bottom: 0.5em; color: #666; font-size: 0.9em;">
         <span id="log-info">Loading logs...</span>
     </div>
     
-    <pre id="log-display" style="background: #23272b; color: #e2e2e2; padding: 1em; border-radius: 4px; overflow-x: auto; max-height: 600px; overflow-y: auto; font-size: 0.85em; line-height: 1.4;">Loading...</pre>
+    <div id="log-display" style="background: #23272b; color: #e2e2e2; padding: 1em; border-radius: 4px; overflow-x: auto; max-height: 600px; overflow-y: auto; font-size: 0.85em; line-height: 1.6; font-family: 'Courier New', monospace;">Loading...</div>
 </div>
+
+<style>
+/* Log level color coding */
+.log-line {
+    margin: 0;
+    padding: 2px 0;
+}
+.log-line.debug {
+    color: #999;
+}
+.log-line.info {
+    color: #e2e2e2;
+}
+.log-line.warning {
+    color: #ff9800;
+    font-weight: 500;
+}
+.log-line.error {
+    color: #f44336;
+    font-weight: 600;
+}
+.log-line.hidden {
+    display: none;
+}
+.log-line mark {
+    background: #ffeb3b;
+    color: #000;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+body.dark-mode #log-display {
+    background: #23272b;
+    color: #e2e2e2;
+}
+body.light-mode #log-display {
+    background: #f5f5f5;
+    color: #222;
+}
+body.light-mode .log-line.debug {
+    color: #666;
+}
+body.light-mode .log-line.info {
+    color: #222;
+}
+</style>
 
 <script>
 let autoRefreshInterval = null;
+let rawLogContent = '';
 
 function refreshLogs() {
     const lineCount = document.getElementById('line-count').value;
-    const logDisplay = document.getElementById('log-display');
     const logInfo = document.getElementById('log-info');
     
     const url = lineCount === 'all' ? '/api/logs?lines=999999' : `/api/logs?lines=${lineCount}`;
@@ -43,20 +120,104 @@ function refreshLogs() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                logDisplay.textContent = data.logs || 'No logs available';
-                logInfo.textContent = `Showing ${data.logs.split('\n').length} of ${data.total_lines} total lines`;
-                
-                // Scroll to bottom
-                logDisplay.scrollTop = logDisplay.scrollHeight;
+                rawLogContent = data.logs || 'No logs available';
+                logInfo.textContent = `Showing ${data.logs.split('\n').filter(l => l.trim()).length} of ${data.total_lines} total lines`;
+                renderLogs();
             } else {
-                logDisplay.textContent = `Error: ${data.message}`;
+                document.getElementById('log-display').innerHTML = `<div class="log-line error">Error: ${data.message}</div>`;
                 logInfo.textContent = 'Error loading logs';
             }
         })
         .catch(error => {
-            logDisplay.textContent = `Error fetching logs: ${error}`;
+            document.getElementById('log-display').innerHTML = `<div class="log-line error">Error fetching logs: ${error}</div>`;
             logInfo.textContent = 'Error loading logs';
         });
+}
+
+function renderLogs() {
+    const logDisplay = document.getElementById('log-display');
+    const searchTerm = document.getElementById('log-search').value.toLowerCase();
+    
+    // Get filter settings
+    const filters = {
+        debug: document.getElementById('filter-debug').checked,
+        info: document.getElementById('filter-info').checked,
+        warning: document.getElementById('filter-warning').checked,
+        error: document.getElementById('filter-error').checked
+    };
+    
+    const lines = rawLogContent.split('\n').filter(line => line.trim());
+    let matchCount = 0;
+    
+    const renderedLines = lines.map(line => {
+        // Detect log level
+        let level = 'info';
+        if (line.includes(' - DEBUG - ')) level = 'debug';
+        else if (line.includes(' - INFO - ')) level = 'info';
+        else if (line.includes(' - WARNING - ')) level = 'warning';
+        else if (line.includes(' - ERROR - ')) level = 'error';
+        
+        // Apply filter
+        const isFiltered = !filters[level];
+        
+        // Apply search
+        const matchesSearch = !searchTerm || line.toLowerCase().includes(searchTerm);
+        if (matchesSearch && !isFiltered) matchCount++;
+        
+        // Highlight search term
+        let displayLine = escapeHtml(line);
+        if (searchTerm && matchesSearch) {
+            const regex = new RegExp(`(${escapeRegex(searchTerm)})`, 'gi');
+            displayLine = displayLine.replace(regex, '<mark>$1</mark>');
+        }
+        
+        const hiddenClass = (isFiltered || !matchesSearch) ? ' hidden' : '';
+        return `<div class="log-line ${level}${hiddenClass}">${displayLine}</div>`;
+    }).join('');
+    
+    logDisplay.innerHTML = renderedLines || '<div class="log-line">No logs to display</div>';
+    document.getElementById('search-matches').textContent = matchCount;
+    
+    // Scroll to bottom
+    logDisplay.scrollTop = logDisplay.scrollHeight;
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function escapeRegex(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function clearLogs() {
+    if (!confirm('Are you sure you want to clear the log file? This action cannot be undone.')) {
+        return;
+    }
+    
+    fetch('/api/logs/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Log file cleared successfully');
+            refreshLogs();
+        } else {
+            alert('Error clearing logs: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('Error clearing logs: ' + error);
+    });
 }
 
 function setupAutoRefresh() {
@@ -77,6 +238,11 @@ function setupAutoRefresh() {
 // Event listeners
 document.getElementById('line-count').addEventListener('change', refreshLogs);
 document.getElementById('auto-refresh').addEventListener('change', setupAutoRefresh);
+document.getElementById('log-search').addEventListener('input', renderLogs);
+document.getElementById('filter-debug').addEventListener('change', renderLogs);
+document.getElementById('filter-info').addEventListener('change', renderLogs);
+document.getElementById('filter-warning').addEventListener('change', renderLogs);
+document.getElementById('filter-error').addEventListener('change', renderLogs);
 
 // Initial load
 refreshLogs();
