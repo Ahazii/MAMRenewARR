@@ -1762,6 +1762,13 @@ def _qbittorrent_send_cookie_internal(mode='Advanced Mode'):
             else:
                 debug_info.append(f"Curl command failed with exit code: {result.returncode}")
                 log_error(f"Curl command failed: {result.stderr}")
+                
+                # Save failure status
+                settings['last_mam_push_status'] = 'failed'
+                settings['last_mam_push_mode'] = mode
+                settings['last_mam_push_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                save_settings(settings)
+                
                 return jsonify({
                     'success': False,
                     'message': f'Curl command failed: {result.stderr}',
@@ -1771,6 +1778,13 @@ def _qbittorrent_send_cookie_internal(mode='Advanced Mode'):
         except subprocess.TimeoutExpired:
             debug_info.append("Curl command timed out after 30 seconds")
             log_error("Curl command timed out")
+            
+            # Save failure status
+            settings['last_mam_push_status'] = 'failed'
+            settings['last_mam_push_mode'] = mode
+            settings['last_mam_push_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            save_settings(settings)
+            
             return jsonify({
                 'success': False,
                 'message': 'Curl command timed out after 30 seconds',
@@ -1780,6 +1794,14 @@ def _qbittorrent_send_cookie_internal(mode='Advanced Mode'):
     except Exception as e:
         debug_info.append(f"Unexpected error: {str(e)}")
         log_info(f"qBittorrent send cookie error: {str(e)}")
+        
+        # Save failure status
+        settings = load_settings()
+        settings['last_mam_push_status'] = 'failed'
+        settings['last_mam_push_mode'] = mode
+        settings['last_mam_push_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        save_settings(settings)
+        
         return jsonify({
             'success': False,
             'message': f'Send cookie error: {str(e)}',
