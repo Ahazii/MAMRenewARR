@@ -1,6 +1,0 @@
-docker run -d \
-  --name mamrenewarr \
-  -p 5000:5000 \
-  -v /mnt/user/appdata/MAMRenewARR:/app/data \
-  --restart unless-stopped \
-  ghcr.io/Ahazii/mamrenewarr:latest

@@ -52,7 +52,7 @@ Alert when session cookies are close to expiring (MAM sessions expire after X da
 Add `/api/health` endpoint for Docker health checks and external monitoring
 - **Priority:** High
 - **Effort:** Small
-- **Status:** Not Started
+- **Status:** ✅ COMPLETED
 
 ### 9. Config validation
 Validate settings before saving (URL format, required fields, port numbers, etc.)
@@ -140,14 +140,14 @@ Undo last operation if something goes wrong (e.g., restore deleted sessions)
 
 ## Quick Wins (High Value, Low Effort)
 - ~~#4: Dark mode toggle button~~ ✅ DONE
-- #8: Health check endpoint
+- ~~#8: Health check endpoint~~ ✅ DONE
 - #11: Backup/restore settings
 - ~~#14: Log level UI control~~ ✅ DONE
 
 ## High Priority Items
 - ~~#4: Dark mode toggle button~~ ✅ DONE
 - #7: Cookie expiration warnings
-- #8: Health check endpoint
+- ~~#8: Health check endpoint~~ ✅ DONE
 
 ## Notes
 Add your own ideas and notes below:

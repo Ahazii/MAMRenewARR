@@ -3372,6 +3372,50 @@ def api_check_update():
             'message': f'Error checking for updates: {str(e)}'
         })
 
+@app.route('/api/health')
+def api_health():
+    """Health check endpoint for Docker and monitoring tools"""
+    try:
+        # Basic health checks
+        health_status = {
+            'status': 'healthy',
+            'version': get_app_version(),
+            'build_date': get_build_date(),
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        # Check if settings file exists and is readable
+        try:
+            settings = load_settings()
+            health_status['settings_ok'] = True
+            health_status['configured'] = bool(settings.get('mam_username') and settings.get('mam_password'))
+        except Exception as e:
+            health_status['settings_ok'] = False
+            health_status['settings_error'] = str(e)
+        
+        # Check if timer is active
+        health_status['timer_active'] = timer_state.get('active', False)
+        health_status['timer_next_run'] = timer_state.get('next_run')
+        
+        # Check if log file is writable
+        try:
+            with open(LOG_FILE, 'a') as f:
+                pass
+            health_status['log_file_ok'] = True
+        except Exception as e:
+            health_status['log_file_ok'] = False
+            health_status['log_file_error'] = str(e)
+        
+        return jsonify(health_status), 200
+        
+    except Exception as e:
+        log_error(f"Health check failed: {e}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }), 503
+
 @app.route('/logs')
 def logs():
     """View application logs"""
