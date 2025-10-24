@@ -8,7 +8,7 @@ This file contains potential enhancements and feature ideas for the project. Fee
 Make the version number a clickable link to the GitHub releases page
 - **Priority:** Low
 - **Effort:** Small
-- **Status:** Not Started
+- **Status:** ✅ COMPLETED
 
 ### 2. Update checker
 API endpoint that checks GitHub for newer releases and shows a notification banner
@@ -20,13 +20,13 @@ API endpoint that checks GitHub for newer releases and shows a notification bann
 Show when the Docker image was built alongside version number
 - **Priority:** Low
 - **Effort:** Small
-- **Status:** Not Started
+- **Status:** ✅ COMPLETED
 
 ### 4. Dark mode toggle button
 Add a visible toggle button in the UI (currently users must manually set theme)
 - **Priority:** High
 - **Effort:** Small
-- **Status:** Not Started
+- **Status:** ✅ COMPLETED (added to header)
 
 ### 5. Progress indicators
 Real-time progress bars for long operations (session deletion, container restart, etc.)
@@ -90,7 +90,7 @@ Send status updates to Discord/Slack/Telegram/etc. when operations complete
 Change log level (Info/Debug) from Config page (backend already supports this)
 - **Priority:** Medium
 - **Effort:** Small
-- **Status:** Not Started
+- **Status:** ✅ COMPLETED
 
 ### 15. Real-time log streaming
 Live log updates using WebSockets instead of manual refresh button
@@ -139,40 +139,31 @@ Undo last operation if something goes wrong (e.g., restore deleted sessions)
 ---
 
 ## Quick Wins (High Value, Low Effort)
-- #4: Dark mode toggle button
+- ~~#4: Dark mode toggle button~~ ✅ DONE
 - #8: Health check endpoint
 - #11: Backup/restore settings
-- #14: Log level UI control
+- ~~#14: Log level UI control~~ ✅ DONE
 
 ## High Priority Items
-- #4: Dark mode toggle button
+- ~~#4: Dark mode toggle button~~ ✅ DONE
 - #7: Cookie expiration warnings
 - #8: Health check endpoint
 
 ## Notes
 Add your own ideas and notes below:
 
-Add prowlarr updating.
+### Completed Notes:
+- ~~Move light/dark mode icon up to header~~ ✅ DONE
+- ~~More Description of the timer, what does it do? Hover text?~~ ✅ DONE (added description text)
+- ~~Clean up UI, Clean up config, remove unused options, unraid un and pass~~ ✅ DONE (removed Unraid credentials, config folder)
+- ~~On basic mode run history, put more info if failed, what failed?~~ ✅ DONE (shows step name and reason)
+- ~~Put the feedback from the push to MAM from qbittorrent CURL command~~ ✅ DONE (displayed in status)
 
-Move light/dark mode icon up to header.
-
-More Description of the timer, what does it do? Hover text?
-
-Use Status area at bottom of the screen for something?
-
-Is it using the qbittorrent directory in the config?
-
-Can we make it work with other versions of qbittorrent?
-
-Cleaan up UI, Clean up config, remove unuseeed options, unraid un and pass
-
-Log Handling, Log Colour Coding by severity, Log Clear, log filter, log search.
-
-On basic mode run history, put more info if failed, what failed?
-
-Put the feedback from the push to MAM from qbittorrent CURL command
-
-Move basic mode timer settings to basic mode. Keep config screen for just usernames passwords ip's etc.
-
-
-
+### Remaining Ideas:
+- Add prowlarr updating (already done - Prowlarr is updated in Fix All/Fix Prowlarr)
+- Use Status area at bottom of the screen for something?
+- Add qBittorrent directory config setting
+- Can we make it work with other versions of qbittorrent?
+- Log Handling: Log Colour Coding by severity, Log Clear, log filter, log search
+- Move basic mode timer settings to basic mode (keep config screen for just credentials/IPs)
+- Progress of currently running task does not display if you navigate away from that page and back (known limitation - progress is in-memory only)
