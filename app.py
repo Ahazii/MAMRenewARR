@@ -98,6 +98,14 @@ def log_debug(message):
     """Log debug level message"""
     logger.debug(message)
 
+def log_warning(message):
+    """Log warning level message"""
+    logger.warning(message)
+
+def log_error(message):
+    """Log error level message"""
+    logger.error(message)
+
 def load_history():
     """Load run history from dedicated history file"""
     try:
@@ -107,7 +115,7 @@ def load_history():
                 return data.get('history', []), data.get('last_run')
         return [], None
     except Exception as e:
-        log_info(f"Error loading history file: {e}")
+        log_error(f"Error loading history file: {e}")
         return [], None
 
 def save_history(history, last_run):
@@ -121,7 +129,7 @@ def save_history(history, last_run):
             json.dump(data, f, indent=2)
         log_debug(f"History saved to file - {len(history)} entries")
     except Exception as e:
-        log_info(f"Error saving history file: {e}")
+        log_error(f"Error saving history file: {e}")
 
 def get_app_version():
     """Get application version from version.txt file or fallback"""
@@ -201,7 +209,7 @@ def load_timer_state():
                             # Calculate next run (will be done by timer toggle after initialization)
                             log_info(f"Saved next run ({saved_next_run}) was in the past, will recalculate on startup")
                     except Exception as e:
-                        log_info(f"Error parsing saved next_run time: {e}, will recalculate")
+                        log_warning(f"Error parsing saved next_run time: {e}, will recalculate")
                         timer_state['active'] = True
                 else:
                     log_info("Timer auto-start enabled but timer was not active on shutdown")
@@ -211,7 +219,7 @@ def load_timer_state():
             log_debug("Timer auto-start disabled")
             
     except Exception as e:
-        log_info(f"Error loading timer state: {e}")
+        log_error(f"Error loading timer state: {e}")
 
 def save_timer_state():
     """Save current timer state to settings"""
@@ -222,7 +230,7 @@ def save_timer_state():
         save_settings(settings)
         log_debug(f"Timer state saved - active: {timer_state.get('active')}, next_run: {timer_state.get('next_run')}")
     except Exception as e:
-        log_info(f"Error saving timer state: {e}")
+        log_error(f"Error saving timer state: {e}")
 
 app = Flask(__name__)
 
@@ -245,7 +253,7 @@ def cleanup_global_driver():
             global_driver.quit()
             log_info("Global browser instance closed")
         except Exception as e:
-            log_info(f"Error closing global browser: {e}")
+            log_error(f"Error closing global browser: {e}")
         finally:
             global_driver = None
 
@@ -286,9 +294,9 @@ def get_or_create_global_driver():
         global_driver = webdriver.Chrome(service=service, options=chrome_options)
         log_info("Created new global browser instance")
         return global_driver
-        
+            
     except Exception as e:
-        log_info(f"Error creating global driver: {e}")
+        log_error(f"Error creating global driver: {e}")
         return None
 
 def ensure_mam_login(driver, settings):
@@ -1073,7 +1081,7 @@ def api_delete_old_sessions():
                             
                         except Exception as e:
                             debug_info.append(f"Error clicking remove button: {e}")
-                            log_info(f"Error clicking remove button for session {session['created_date_text']}: {e}")
+                            log_error(f"Error clicking remove button for session {session['created_date_text']}: {e}")
                             continue
                 
                 # Verify if session count actually changed
@@ -1380,7 +1388,7 @@ def api_logout_mam():
                     'message': 'Successfully logged out from MAM (browser closed)'
                 })
             except Exception as e:
-                log_info(f"Error closing browser: {e}")
+                log_error(f"Error closing browser: {e}")
                 return jsonify({
                     'success': False,
                     'message': f'Error closing browser: {str(e)}'
@@ -2529,11 +2537,11 @@ def api_fix_myanonamouse():
                 log_info("✓ Clear Cookies: Success")
             else:
                 steps.append({'name': 'Clear Cookies', 'status': 'FAILED', 'message': data['message']})
-                log_info(f"✗ Clear Cookies: {data['message']}")
+                log_error(f"✗ Clear Cookies: {data['message']}")
                 overall_success = False
         except Exception as e:
             steps.append({'name': 'Clear Cookies', 'status': 'ERROR', 'message': str(e)})
-            log_info(f"✗ Clear Cookies error: {e}")
+            log_error(f"✗ Clear Cookies error: {e}")
             overall_success = False
         
         # Step 2: Restart qBittorrent Container
@@ -2546,7 +2554,7 @@ def api_fix_myanonamouse():
                 log_info("✓ Restart qBittorrent: Success")
             else:
                 steps.append({'name': 'Restart qBittorrent', 'status': 'FAILED', 'message': data['message']})
-                log_info(f"✗ Restart qBittorrent: {data['message']}")
+                log_error(f"✗ Restart qBittorrent: {data['message']}")
                 overall_success = False
                 # Critical failure - stop here
                 return jsonify({
@@ -2556,7 +2564,7 @@ def api_fix_myanonamouse():
                 })
         except Exception as e:
             steps.append({'name': 'Restart qBittorrent', 'status': 'ERROR', 'message': str(e)})
-            log_info(f"✗ Restart qBittorrent error: {e}")
+            log_error(f"✗ Restart qBittorrent error: {e}")
             return jsonify({
                 'success': False,
                 'message': f'Fix MyAnonamouse failed: {str(e)}',
@@ -3232,7 +3240,7 @@ def timer_worker():
             time.sleep(30)
             
         except Exception as e:
-            log_info(f"Timer worker error (ID: {thread_id}): {e}")
+            log_error(f"Timer worker error (ID: {thread_id}): {e}")
             import traceback
             log_debug(f"Timer worker traceback: {traceback.format_exc()}")
             time.sleep(30)
@@ -3362,7 +3370,7 @@ def api_get_logs():
             'total_lines': len(all_lines)
         })
     except Exception as e:
-        log_info(f"Error reading logs: {e}")
+        log_error(f"Error reading logs: {e}")
         return jsonify({
             'success': False,
             'message': f'Error reading logs: {str(e)}'
@@ -3386,7 +3394,7 @@ def api_clear_logs():
             'message': 'Log file cleared successfully'
         })
     except Exception as e:
-        log_info(f"Error clearing logs: {e}")
+        log_error(f"Error clearing logs: {e}")
         return jsonify({
             'success': False,
             'message': f'Error clearing logs: {str(e)}'
@@ -3455,3 +3463,6 @@ if timer_state['active']:
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+
+
+

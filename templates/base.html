@@ -9,7 +9,6 @@
     <link rel="shortcut icon" href="{{ url_for('favicon') }}">
     <style>
         body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; }
-        header, footer { background: #222; color: #fff; padding: 1em; text-align: center; }
         nav { margin: 1em 0; }
         .nav-link { color: #fff; text-decoration: none; margin: 0 1em; font-weight: bold; }
         .nav-link:hover { text-decoration: underline; }
@@ -59,6 +58,9 @@ body.dark-mode .box button:hover, body.dark-mode button:hover {
         body.dark-mode main { background: #23272b; }
         body.light-mode .box { background: #f9f9f9; border-color: #ddd; }
         body.dark-mode .box { background: #23272b; border-color: #333; }
+        
+        /* Header and footer theme styling */
+        header, footer { padding: 1em; text-align: center; }
         body.light-mode header, body.light-mode footer { background: #222; color: #fff; }
         body.dark-mode header, body.dark-mode footer { background: #111; color: #e2e2e2; }
         body.light-mode .nav-link { color: #fff; }
@@ -210,36 +212,44 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Update checker
 function checkForUpdates() {
-  // Check if we've checked recently (cache for 6 hours)
-  const lastCheck = localStorage.getItem('lastUpdateCheck');
-  const now = Date.now();
-  const sixHours = 6 * 60 * 60 * 1000;
-  
-  if (lastCheck && (now - parseInt(lastCheck)) < sixHours) {
-    // Use cached result
-    const cachedResult = localStorage.getItem('updateCheckResult');
-    if (cachedResult) {
-      const result = JSON.parse(cachedResult);
-      if (result.update_available) {
-        showUpdateBanner(result);
-      }
-    }
-    return;
-  }
-  
-  // Perform new check
-  fetch('/api/check_update')
+  // Get update check interval from settings (default 6 hours)
+  fetch('/api/settings')
     .then(r => r.json())
-    .then(data => {
-      if (data.success && data.update_available) {
-        showUpdateBanner(data);
+    .then(settings => {
+      const updateCheckHours = settings.update_check_hours || 6;
+      const lastCheck = localStorage.getItem('lastUpdateCheck');
+      const now = Date.now();
+      const checkInterval = updateCheckHours * 60 * 60 * 1000;
+      
+      if (lastCheck && (now - parseInt(lastCheck)) < checkInterval) {
+        // Use cached result
+        const cachedResult = localStorage.getItem('updateCheckResult');
+        if (cachedResult) {
+          const result = JSON.parse(cachedResult);
+          if (result.update_available) {
+            showUpdateBanner(result);
+          }
+        }
+        return;
       }
-      // Cache the result
-      localStorage.setItem('lastUpdateCheck', now.toString());
-      localStorage.setItem('updateCheckResult', JSON.stringify(data));
+      
+      // Perform new check
+      fetch('/api/check_update')
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && data.update_available) {
+            showUpdateBanner(data);
+          }
+          // Cache the result
+          localStorage.setItem('lastUpdateCheck', now.toString());
+          localStorage.setItem('updateCheckResult', JSON.stringify(data));
+        })
+        .catch(err => {
+          console.log('Update check failed:', err);
+        });
     })
     .catch(err => {
-      console.log('Update check failed:', err);
+      console.log('Failed to load settings for update check:', err);
     });
 }
 
