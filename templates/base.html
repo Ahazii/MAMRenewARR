@@ -8,19 +8,19 @@
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
     <link rel="shortcut icon" href="{{ url_for('favicon') }}">
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; }
+        body { font-family: Arial, sans-serif; margin: 0; }
         nav { margin: 1em 0; }
-        .nav-link { color: #fff; text-decoration: none; margin: 0 1em; font-weight: bold; }
+        .nav-link { text-decoration: none; margin: 0 1em; font-weight: bold; }
         .nav-link:hover { text-decoration: underline; }
-        main { margin: 2em auto; max-width: 700px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 2em; border-radius: 8px; }
-        .version { font-size: 0.9em; color: #bbb; }
-        .version a { color: #88ccff; text-decoration: none; }
+        main { margin: 2em auto; max-width: 700px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 2em; border-radius: 8px; }
+        .version { font-size: 0.9em; }
+        .version a { text-decoration: none; }
         .version a:hover { text-decoration: underline; }
-        .build-date { font-size: 0.75em; color: #999; display: block; margin-top: 0.2em; }
-        .box { background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; padding: 1em; margin-bottom: 1.5em; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .build-date { font-size: 0.75em; display: block; margin-top: 0.2em; }
+        .box { border-radius: 6px; padding: 1em; margin-bottom: 1.5em; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
         .config-fields { display: flex; flex-direction: column; gap: 0.7em; max-width: 430px; margin: 0 auto; }
-        label { font-weight: 600; margin-bottom: 0.2em; color: #333; display: inline-block; min-width: 140px; }
-        input[type='text'], input[type='password'], input[type='number'], input[type='time'], select { padding: 0.4em 0.7em; border: 1px solid #bbb; border-radius: 4px; font-size: 1em; width: 260px; max-width: 100%; }
+        label { font-weight: 600; margin-bottom: 0.2em; display: inline-block; min-width: 140px; }
+        input[type='text'], input[type='password'], input[type='number'], input[type='time'], select { padding: 0.4em 0.7em; border-radius: 4px; font-size: 1em; width: 260px; max-width: 100%; }
         .button-row, .box button, button {
   margin: 0.3em 0.7em 0.3em 0;
   padding: 0.55em 1.2em;
